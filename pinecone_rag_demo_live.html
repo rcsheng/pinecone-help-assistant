@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pinecone Knowledge Layer · Live Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #050810;
+    --surface: #0c1020;
+    --surface2: #111828;
+    --border: #1e2d45;
+    --pine: #00d4a0;
+    --pine-dim: rgba(0,212,160,0.10);
+    --pine-glow: rgba(0,212,160,0.30);
+    --amber: #f5a623;
+    --amber-dim: rgba(245,166,35,0.12);
+    --red: #ff5454;
+    --red-dim: rgba(255,84,84,0.08);
+    --text: #e8edf5;
+    --muted: #6b7fa3;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,212,160,.025) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,212,160,.025) 1px,transparent 1px);
+    background-size:40px 40px;
+    pointer-events:none; z-index:0;
+  }
+
+  body::after {
+    content:'';
+    position:fixed; top:-200px; left:50%; transform:translateX(-50%);
+    width:800px; height:400px;
+    background:radial-gradient(ellipse,rgba(0,212,160,.06) 0%,transparent 70%);
+    pointer-events:none; z-index:0;
+  }
+
+  .container {
+    max-width:960px; margin:0 auto;
+    padding:0 24px 80px;
+    position:relative; z-index:1;
+  }
+
+  /* ── Header ── */
+  header {
+    padding:36px 0 40px;
+    display:flex; align-items:center; gap:16px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:40px;
+  }
+
+  .logo-mark {
+    width:34px; height:34px;
+    background:var(--pine);
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    flex-shrink:0;
+    animation:pulse-logo 3s ease-in-out infinite;
+  }
+  @keyframes pulse-logo { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+  .header-text h1 { font-size:14px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--pine); }
+  .header-text p  { font-size:11px; color:var(--muted); letter-spacing:.06em; margin-top:2px; font-family:var(--mono); }
+
+  .live-badge {
+    margin-left:auto;
+    display:flex; align-items:center; gap:7px;
+    background:var(--pine-dim); border:1px solid var(--pine-glow);
+    color:var(--pine); font-family:var(--mono); font-size:10px;
+    padding:5px 12px; letter-spacing:.1em; text-transform:uppercase;
+  }
+  .live-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--pine);
+    animation:live-blink 1.4s ease-in-out infinite;
+  }
+  @keyframes live-blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+  /* ── Connection bar ── */
+  .conn-bar {
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    border:1px solid var(--border); background:var(--surface2);
+    padding:11px 18px; margin-bottom:40px;
+  }
+  .conn-label { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-right:4px; }
+  .conn-pill {
+    font-family:var(--mono); font-size:9px; padding:3px 9px;
+    border:1px solid var(--border); text-transform:uppercase; letter-spacing:.08em;
+  }
+  .conn-pill.ok   { border-color:var(--pine-glow); color:var(--pine); background:var(--pine-dim); }
+  .conn-pill.miss { border-color:rgba(245,166,35,.3); color:var(--amber); background:var(--amber-dim); }
+  .conn-pill.err  { border-color:rgba(255,84,84,.3);  color:var(--red);   background:var(--red-dim); }
+
+  /* ── Mode tabs ── */
+  .mode-tabs {
+    display:flex; gap:0; margin-bottom:28px;
+    border:1px solid var(--border); overflow:hidden; width:fit-content;
+  }
+  .mode-tab {
+    background:var(--surface); border:none; color:var(--muted);
+    font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    padding:10px 22px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:7px;
+  }
+  .mode-tab + .mode-tab { border-left:1px solid var(--border); }
+  .mode-tab:hover { color:var(--text); }
+  .mode-tab.active { background:var(--pine-dim); color:var(--pine); border-color:var(--pine-glow); }
+
+  /* ── Hero ── */
+  .hero { margin-bottom:40px; }
+  .hero h2 { font-size:clamp(26px,5vw,44px); font-weight:800; line-height:1.08; letter-spacing:-.02em; margin-bottom:10px; }
+  .hero h2 span { color:var(--pine); }
+  .hero p { font-size:14px; color:var(--muted); line-height:1.65; max-width:580px; }
+
+  /* ── Arch strip ── */
+  .arch-strip {
+    display:flex; align-items:center;
+    margin-bottom:40px;
+    background:var(--surface); border:1px solid var(--border);
+    padding:18px 22px; overflow-x:auto; gap:0;
+  }
+
+  .arch-node { display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; }
+  .arch-node .icon {
+    width:42px; height:42px; border:1px solid var(--border); background:var(--surface2);
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+    transition:all .3s;
+  }
+  .arch-node .label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; text-align:center; }
+  .arch-node.active .icon  { border-color:var(--pine); background:var(--pine-dim); }
+  .arch-node.active .label { color:var(--pine); }
+
+  .arch-arrow {
+    flex:1; min-width:24px; height:1px; background:var(--border);
+    position:relative; margin:0 2px; margin-bottom:18px; transition:background .3s;
+  }
+  .arch-arrow::after { content:'▶'; position:absolute; right:-6px; top:-7px; font-size:8px; color:var(--muted); }
+  .arch-arrow.lit { background:var(--pine); }
+  .arch-arrow.lit::after { color:var(--pine); }
+
+  /* ── Metrics ── */
+  .metrics-bar { display:flex; border:1px solid var(--border); margin-bottom:36px; overflow:hidden; }
+  .metric { flex:1; padding:14px 16px; border-right:1px solid var(--border); text-align:center; }
+  .metric:last-child { border-right:none; }
+  .metric .val { font-size:20px; font-weight:800; color:var(--pine); font-family:var(--mono); letter-spacing:-.02em; }
+  .metric .lbl { font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-top:2px; font-family:var(--mono); }
+
+  /* ── Query ── */
+  .section-label { font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+
+  .input-wrap { display:flex; border:1px solid var(--border); background:var(--surface); transition:border-color .2s; }
+  .input-wrap:focus-within { border-color:var(--pine); box-shadow:0 0 0 3px var(--pine-dim); }
+
+  #query-input {
+    flex:1; background:transparent; border:none; outline:none;
+    color:var(--text); font-family:var(--sans); font-size:14px; padding:14px 18px;
+  }
+  #query-input::placeholder { color:var(--muted); }
+
+  #search-btn {
+    background:var(--pine); color:#050810; border:none; padding:14px 22px;
+    font-family:var(--sans); font-size:12px; font-weight:700;
+    letter-spacing:.06em; cursor:pointer; text-transform:uppercase;
+    transition:opacity .2s; white-space:nowrap;
+  }
+  #search-btn:hover { opacity:.85; }
+  #search-btn:disabled { opacity:.35; cursor:not-allowed; }
+
+  .query-opts { display:flex; align-items:center; gap:16px; margin-top:10px; flex-wrap:wrap; }
+
+  .opt-group { display:flex; align-items:center; gap:7px; }
+  .opt-group label { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.06em; }
+  .opt-group select {
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); font-family:var(--mono); font-size:10px;
+    padding:4px 8px; outline:none; cursor:pointer;
+  }
+
+  .hint-chips { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+  .hint-chip {
+    font-family:var(--mono); font-size:10px; color:var(--muted);
+    border:1px solid var(--border); padding:4px 10px; cursor:pointer; transition:all .15s;
+  }
+  .hint-chip:hover { color:var(--pine); border-color:var(--pine); }
+
+  /* ── Results ── */
+  .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  @media(max-width:640px){ .results-grid{ grid-template-columns:1fr; } }
+
+  .panel { border:1px solid var(--border); background:var(--surface); }
+  .panel-header {
+    padding:11px 16px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:8px; background:var(--surface2);
+  }
+  .panel-header .dot { width:6px; height:6px; background:var(--pine); }
+  .panel-header span { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .panel-header .timing { margin-left:auto; color:var(--amber); font-family:var(--mono); font-size:10px; }
+
+  .panel-body { padding:14px; min-height:200px; max-height:440px; overflow-y:auto; }
+
+  /* Chunks */
+  .chunk {
+    border:1px solid var(--border); padding:12px 13px; margin-bottom:9px;
+    position:relative; opacity:0; transform:translateY(5px);
+    animation:chunk-in .3s ease forwards;
+  }
+  @keyframes chunk-in { to{ opacity:1; transform:translateY(0); } }
+  .chunk:nth-child(1){animation-delay:.05s} .chunk:nth-child(2){animation-delay:.15s}
+  .chunk:nth-child(3){animation-delay:.25s} .chunk:nth-child(4){animation-delay:.35s}
+  .chunk:nth-child(5){animation-delay:.45s}
+
+  .chunk-score { position:absolute; top:9px; right:11px; font-family:var(--mono); font-size:10px; color:var(--pine); }
+  .chunk-source { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:5px; }
+  .chunk-text { font-size:12px; line-height:1.65; color:#c2cfe0; }
+  .chunk-text mark { background:var(--amber-dim); color:var(--amber); padding:0 2px; }
+  .chunk-title { font-size:10px; font-weight:700; color:var(--pine); margin-bottom:3px; font-family:var(--mono); }
+
+  /* Answer */
+  .answer-text { font-size:14px; line-height:1.78; color:var(--text); }
+  .answer-text .citation {
+    display:inline-block; background:var(--pine-dim); border:1px solid var(--pine-glow);
+    color:var(--pine); font-family:var(--mono); font-size:9px;
+    padding:1px 5px; vertical-align:super; margin:0 2px; line-height:1.2;
+  }
+
+  .cursor { display:inline-block; width:8px; height:14px; background:var(--pine); animation:blink .7s step-end infinite; vertical-align:text-bottom; margin-left:2px; }
+  @keyframes blink{ 50%{opacity:0} }
+
+  /* Loading */
+  .loading-bar { height:2px; background:linear-gradient(90deg,var(--pine),#00a0ff,var(--pine)); background-size:200%; animation:shimmer 1.2s linear infinite; }
+  @keyframes shimmer{ from{background-position:200% 0} to{background-position:-200% 0} }
+
+  .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:180px; color:var(--muted); gap:8px; text-align:center; }
+  .empty .e-icon { font-size:26px; opacity:.3; }
+  .empty p { font-size:11px; font-family:var(--mono); letter-spacing:.06em; }
+
+  .error-msg { color:var(--red); font-family:var(--mono); font-size:11px; padding:11px 14px; border:1px solid rgba(255,84,84,.2); background:var(--red-dim); margin-top:8px; line-height:1.6; }
+
+  /* Sources footer */
+  .sources-bar {
+    border:1px solid var(--border); background:var(--surface2);
+    padding:12px 16px; margin-bottom:32px;
+    display:none;
+  }
+  .sources-bar.visible { display:block; }
+  .sources-bar-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .source-links { display:flex; gap:8px; flex-wrap:wrap; }
+  .source-link { font-family:var(--mono); font-size:10px; color:var(--pine); border:1px solid var(--pine-glow); padding:3px 8px; text-decoration:none; }
+  .source-link:hover { background:var(--pine-dim); }
+
+  /* Footer */
+  .footnote { font-family:var(--mono); font-size:10px; color:var(--muted); text-align:center; margin-top:40px; letter-spacing:.06em; border-top:1px solid var(--border); padding-top:22px; line-height:1.9; }
+  .footnote span { color:var(--pine); }
+
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-mark"></div>
+    <div class="header-text">
+      <h1>Pinecone Knowledge Layer</h1>
+      <p>live retrieval · real index · rag pipeline</p>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+  </header>
+
+  <!-- API Keys Panel -->
+  <!-- Connection status (populated by /api/config on load) -->
+  <div class="conn-bar" id="conn-bar">
+    <span class="conn-label">Services</span>
+    <div class="conn-pill" id="pill-pinecone">Pinecone —</div>
+    <div class="conn-pill" id="pill-assistant">Assistant —</div>
+    <div class="conn-pill" id="pill-openai">OpenAI —</div>
+    <div class="conn-pill" id="pill-claude">Claude —</div>
+    <div class="conn-pill" id="pill-rag" style="margin-left:auto">RAG —</div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h2>Query your real<br><span>Pinecone index</span></h2>
+    <p>Two modes: <strong style="color:var(--pine)">RAG Pipeline</strong> — embed → ANN search → Claude synthesis. <strong style="color:var(--pine)">Pinecone Assistant</strong> — fully managed RAG with native citations, no extra keys needed.</p>
+  </div>
+
+  <!-- Mode tabs -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tab-rag" onclick="switchMode('rag')">⛓ RAG Pipeline</button>
+    <button class="mode-tab" id="tab-assistant" onclick="switchMode('assistant')">🤖 Pinecone Assistant</button>
+  </div>
+
+  <!-- Architecture (RAG) -->
+  <div class="arch-strip" id="arch-rag">
+    <div class="arch-node" id="an-query"><div class="icon">⌨️</div><div class="label">User<br>Query</div></div>
+    <div class="arch-arrow" id="aa-1"></div>
+    <div class="arch-node" id="an-embed"><div class="icon">🔢</div><div class="label">OpenAI<br>Embed</div></div>
+    <div class="arch-arrow" id="aa-2"></div>
+    <div class="arch-node active" id="an-pinecone"><div class="icon">🌲</div><div class="label">Pinecone<br>ANN Query</div></div>
+    <div class="arch-arrow" id="aa-3"></div>
+    <div class="arch-node" id="an-rerank"><div class="icon">↕️</div><div class="label">Score<br>Filter</div></div>
+    <div class="arch-arrow" id="aa-4"></div>
+    <div class="arch-node" id="an-llm"><div class="icon">🤖</div><div class="label">Claude<br>Synthesis</div></div>
+    <div class="arch-arrow" id="aa-5"></div>
+    <div class="arch-node" id="an-answer"><div class="icon">💬</div><div class="label">Cited<br>Answer</div></div>
+  </div>
+
+  <!-- Architecture (Assistant) -->
+  <div class="arch-strip" id="arch-assistant" style="display:none">
+    <div class="arch-node" id="asa-query"><div class="icon">⌨️</div><div class="label">User<br>Query</div></div>
+    <div class="arch-arrow" id="asa-1"></div>
+    <div class="arch-node active" id="asa-pinecone"><div class="icon">🌲</div><div class="label">Pinecone<br>Assistant</div></div>
+    <div class="arch-arrow" id="asa-2"></div>
+    <div class="arch-node" id="asa-retrieval"><div class="icon">🔍</div><div class="label">Built-in<br>Retrieval</div></div>
+    <div class="arch-arrow" id="asa-3"></div>
+    <div class="arch-node" id="asa-llm"><div class="icon">🤖</div><div class="label">Managed<br>LLM</div></div>
+    <div class="arch-arrow" id="asa-4"></div>
+    <div class="arch-node" id="asa-answer"><div class="icon">📎</div><div class="label">Cited<br>Answer</div></div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics-bar">
+    <div class="metric"><div class="val" id="m-embed">—</div><div class="lbl">Embed ms</div></div>
+    <div class="metric"><div class="val" id="m-latency">—</div><div class="lbl">Retrieval ms</div></div>
+    <div class="metric"><div class="val" id="m-chunks">—</div><div class="lbl">Chunks</div></div>
+    <div class="metric"><div class="val" id="m-score">—</div><div class="lbl">Top score</div></div>
+    <div class="metric"><div class="val" id="m-tokens">—</div><div class="lbl">Context tokens</div></div>
+  </div>
+
+  <!-- Query -->
+  <div style="margin-bottom:28px">
+    <div class="section-label">Query the knowledge base</div>
+    <div class="input-wrap">
+      <input id="query-input" type="text" placeholder="e.g. How does hybrid search work in Pinecone?" />
+      <button id="search-btn" onclick="runSearch()">Search →</button>
+    </div>
+    <div class="query-opts" id="rag-opts">
+      <div class="opt-group">
+        <label>Top K</label>
+        <select id="top-k">
+          <option value="3">3</option>
+          <option value="5" selected>5</option>
+          <option value="8">8</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label>Min score</label>
+        <select id="min-score">
+          <option value="0">None</option>
+          <option value="0.5" selected>0.50</option>
+          <option value="0.6">0.60</option>
+          <option value="0.7">0.70</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label>Namespace</label>
+        <select id="namespace">
+          <option value="">default</option>
+          <option value="pinecone-docs">pinecone-docs</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint-chips" id="hint-chips-rag">
+      <div class="hint-chip" onclick="setQ(this)">How does hybrid search work in Pinecone?</div>
+      <div class="hint-chip" onclick="setQ(this)">What is the difference between serverless and pod-based indexes?</div>
+      <div class="hint-chip" onclick="setQ(this)">How do namespaces work?</div>
+      <div class="hint-chip" onclick="setQ(this)">What is Pinecone Inference?</div>
+      <div class="hint-chip" onclick="setQ(this)">How does sparse vector search differ from dense?</div>
+    </div>
+    <div class="hint-chips" id="hint-chips-assistant" style="display:none">
+      <div class="hint-chip" onclick="setQ(this)">How does hybrid search work in Pinecone?</div>
+      <div class="hint-chip" onclick="setQ(this)">What are the main index types in Pinecone?</div>
+      <div class="hint-chip" onclick="setQ(this)">How do I upsert vectors with metadata?</div>
+      <div class="hint-chip" onclick="setQ(this)">Explain Pinecone namespaces and when to use them</div>
+      <div class="hint-chip" onclick="setQ(this)">What is the Pinecone Inference API?</div>
+    </div>
+    <div id="error-container"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="section-label">Retrieved chunks → synthesized answer</div>
+  <div class="results-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot"></div>
+        <span id="left-panel-label">Pinecone Retrieval</span>
+        <span class="timing" id="retrieval-timing"></span>
+      </div>
+      <div class="panel-body" id="chunks-panel">
+        <div class="empty"><div class="e-icon">🌲</div><p>Awaiting query...</p></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot"></div>
+        <span>Claude Answer</span>
+        <span class="timing" id="gen-timing"></span>
+      </div>
+      <div class="panel-body" id="answer-panel">
+        <div class="empty"><div class="e-icon">💬</div><p>Answer streams here...</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Source links -->
+  <div class="sources-bar" id="sources-bar">
+    <div class="sources-bar-label">📎 Source docs</div>
+    <div class="source-links" id="source-links"></div>
+  </div>
+
+  <div class="footnote">
+    <span>Pinecone</span> serverless · <span>OpenAI</span> text-embedding-3-small · <span>Claude</span> Sonnet 4 · <span>Pinecone Assistant</span> managed RAG<br>
+    Built for Staff PM, Knowledge interview · <span>pinecone.io/careers</span>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let cfg = {};   // populated from /api/config on load
+let currentMode = 'rag';
+let isLoading = false;
+
+// ─── Init: fetch server config ────────────────────────────────────────────────
+async function initApp() {
+  try {
+    const res = await fetch('/api/config');
+    cfg = await res.json();
+  } catch(e) {
+    showError('Could not reach local server. Is server.js running? (npm start)');
+    return;
+  }
+
+  setPill('pill-pinecone',  'Pinecone',  cfg.pineconeReady);
+  setPill('pill-assistant', 'Assistant', cfg.assistantReady);
+  setPill('pill-openai',    'OpenAI',    cfg.ragReady);
+  setPill('pill-claude',    'Claude',    cfg.ragReady);
+  setPill('pill-rag',       'RAG ready', cfg.ragReady);
+
+  // Disable RAG tab if dependencies are missing
+  if (!cfg.ragReady) {
+    document.getElementById('tab-rag').title = 'Add OPENAI_API_KEY and ANTHROPIC_API_KEY to .env';
+  }
+  if (!cfg.assistantReady) {
+    document.getElementById('tab-assistant').title = 'Run pinecone_assistant_ingest.py first';
+  }
+}
+
+function setPill(id, label, ok) {
+  const el = document.getElementById(id);
+  el.textContent = `${label}: ${ok ? '✓' : '✗'}`;
+  el.className = 'conn-pill ' + (ok ? 'ok' : ok === false ? 'miss' : '');
+}
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setQ(el)  { document.getElementById('query-input').value = el.textContent; }
+function showError(msg) { document.getElementById('error-container').innerHTML = `<div class="error-msg">⚠ ${msg}</div>`; }
+function clearError()   { document.getElementById('error-container').innerHTML = ''; }
+
+function highlightTerms(text, query) {
+  const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 3);
+  let result = escapeHtml(text);
+  terms.forEach(t => {
+    const re = new RegExp(`(${escapeRegex(t)})`, 'gi');
+    result = result.replace(re, '<mark>$1</mark>');
+  });
+  return result;
+}
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// ─── Mode switching ───────────────────────────────────────────────────────────
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tab-rag').classList.toggle('active', mode === 'rag');
+  document.getElementById('tab-assistant').classList.toggle('active', mode === 'assistant');
+
+  document.getElementById('arch-rag').style.display       = mode === 'rag'       ? '' : 'none';
+  document.getElementById('arch-assistant').style.display = mode === 'assistant' ? '' : 'none';
+
+  document.getElementById('rag-opts').style.display            = mode === 'rag'       ? '' : 'none';
+  document.getElementById('hint-chips-rag').style.display      = mode === 'rag'       ? '' : 'none';
+  document.getElementById('hint-chips-assistant').style.display= mode === 'assistant' ? '' : 'none';
+
+  document.getElementById('left-panel-label').textContent =
+    mode === 'rag' ? 'Pinecone Retrieval' : 'Source Citations';
+
+  // Reset panels
+  document.getElementById('chunks-panel').innerHTML = `<div class="empty"><div class="e-icon">🌲</div><p>Awaiting query...</p></div>`;
+  document.getElementById('answer-panel').innerHTML = `<div class="empty"><div class="e-icon">💬</div><p>Answer streams here...</p></div>`;
+  document.getElementById('sources-bar').classList.remove('visible');
+  clearError();
+}
+
+// ─── Architecture animation ───────────────────────────────────────────────────
+function resetArch() {
+  ['an-query','an-embed','an-rerank','an-llm','an-answer'].forEach(id =>
+    document.getElementById(id).classList.remove('active'));
+  ['aa-1','aa-2','aa-3','aa-4','aa-5'].forEach(id =>
+    document.getElementById(id).classList.remove('lit'));
+  ['asa-query','asa-pinecone','asa-retrieval','asa-llm','asa-answer'].forEach(id =>
+    document.getElementById(id).classList.remove('active'));
+  ['asa-1','asa-2','asa-3','asa-4'].forEach(id =>
+    document.getElementById(id).classList.remove('lit'));
+}
+
+async function animateArch() {
+  if (currentMode === 'rag') {
+    const steps = [
+      { node:'an-query',   arrow:null,  delay:0 },
+      { node:'an-embed',   arrow:'aa-1',delay:200 },
+      { node:'an-pinecone',arrow:'aa-2',delay:500 },
+      { node:'an-rerank',  arrow:'aa-3',delay:900 },
+      { node:'an-llm',     arrow:'aa-4',delay:1200 },
+      { node:'an-answer',  arrow:'aa-5',delay:2000 },
+    ];
+    for (const s of steps) {
+      await sleep(s.delay);
+      document.getElementById(s.node).classList.add('active');
+      if (s.arrow) document.getElementById(s.arrow).classList.add('lit');
+    }
+  } else {
+    const steps = [
+      { node:'asa-query',    arrow:null,    delay:0 },
+      { node:'asa-pinecone', arrow:'asa-1', delay:200 },
+      { node:'asa-retrieval',arrow:'asa-2', delay:600 },
+      { node:'asa-llm',      arrow:'asa-3', delay:1000 },
+      { node:'asa-answer',   arrow:'asa-4', delay:1600 },
+    ];
+    for (const s of steps) {
+      await sleep(s.delay);
+      document.getElementById(s.node).classList.add('active');
+      if (s.arrow) document.getElementById(s.arrow).classList.add('lit');
+    }
+  }
+}
+
+// ─── Main search flow ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', initApp);
+document.getElementById('query-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSearch();
+});
+
+function runSearch() {
+  if (currentMode === 'assistant') return runAssistant();
+  return runRAG();
+}
+
+// ─── Pinecone Assistant mode ──────────────────────────────────────────────────
+async function runAssistant() {
+  const query = document.getElementById('query-input').value.trim();
+  if (!query || isLoading) return;
+
+  if (!cfg.assistantReady) {
+    showError('Assistant not available — run pinecone_assistant_ingest.py first, then restart the server.');
+    return;
+  }
+
+  isLoading = true;
+  clearError();
+  document.getElementById('search-btn').disabled = true;
+  document.getElementById('sources-bar').classList.remove('visible');
+
+  document.getElementById('chunks-panel').innerHTML = `<div class="loading-bar"></div>`;
+  document.getElementById('answer-panel').innerHTML  = `<div class="empty"><div class="e-icon">⏳</div><p>Asking assistant...</p></div>`;
+  resetArch();
+  animateArch();
+
+  const t0 = performance.now();
+
+  try {
+    const res = await fetch('/api/assistant/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: query }],
+        stream: false,
+      }),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(`Assistant: ${e.error?.message || e.message || res.status}`);
+    }
+    const data = await res.json();
+    const totalMs = Math.round(performance.now() - t0);
+
+    // Metrics
+    document.getElementById('m-embed').textContent   = '—';
+    document.getElementById('m-latency').textContent = totalMs;
+    document.getElementById('retrieval-timing').textContent = `${totalMs}ms`;
+    document.getElementById('m-chunks').textContent  = '—';
+    document.getElementById('m-score').textContent   = '—';
+    document.getElementById('m-tokens').textContent  =
+      data.usage ? (data.usage.prompt_tokens + data.usage.completion_tokens) : '—';
+
+    // Citations panel
+    const citations = data.citations || [];
+    if (citations.length > 0) {
+      const seen = new Set();
+      const items = [];
+      citations.forEach(c => {
+        (c.references || []).forEach(ref => {
+          const name = ref.file?.name;
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            // Recover source URL from chunk filename convention
+            const srcText = ref.snippet || '';
+            items.push({ name, snippet: srcText });
+          }
+        });
+      });
+      document.getElementById('chunks-panel').innerHTML = items.map((item, i) => `
+        <div class="chunk" style="animation-delay:${i * 0.1}s">
+          <div class="chunk-score">[${i+1}]</div>
+          <div class="chunk-title">${escapeHtml(item.name)}</div>
+          ${item.snippet ? `<div class="chunk-text">${escapeHtml(item.snippet.slice(0, 240))}…</div>` : ''}
+        </div>`).join('');
+    } else {
+      document.getElementById('chunks-panel').innerHTML = `<div class="empty"><div class="e-icon">📎</div><p>No citation data returned.</p></div>`;
+    }
+
+    // Answer
+    const answer = typeof data.message?.content === 'string'
+      ? data.message.content
+      : data.message?.content?.[0]?.text || 'No response generated.';
+
+    const formatted = answer.replace(/\[(\d+)\]/g, '<span class="citation">[$1]</span>');
+    document.getElementById('gen-timing').textContent = `${totalMs}ms`;
+    await typeAnswer(formatted);
+
+  } catch(err) {
+    document.getElementById('chunks-panel').innerHTML = `<div class="empty"><div class="e-icon">⚠</div><p>Error</p></div>`;
+    document.getElementById('answer-panel').innerHTML  = '';
+    showError(err.message);
+  }
+
+  isLoading = false;
+  document.getElementById('search-btn').disabled = false;
+}
+
+// ─── RAG Pipeline mode ────────────────────────────────────────────────────────
+async function runRAG() {
+  const query = document.getElementById('query-input').value.trim();
+  if (!query || isLoading) return;
+
+  if (!cfg.ragReady) {
+    showError('RAG mode requires PINECONE_API_KEY, OPENAI_API_KEY, and ANTHROPIC_API_KEY in your .env file.');
+    return;
+  }
+
+  isLoading = true;
+  clearError();
+  document.getElementById('search-btn').disabled = true;
+  document.getElementById('sources-bar').classList.remove('visible');
+
+  // Reset UI
+  document.getElementById('chunks-panel').innerHTML = `<div class="loading-bar"></div>`;
+  document.getElementById('answer-panel').innerHTML = `<div class="empty"><div class="e-icon">⏳</div><p>Embedding query...</p></div>`;
+  resetArch();
+  animateArch();
+
+  const topK     = parseInt(document.getElementById('top-k').value);
+  const minScore = parseFloat(document.getElementById('min-score').value);
+  const ns       = document.getElementById('namespace').value;
+
+  try {
+    // ── Step 1: Embed query with OpenAI ──────────────────────────────────────
+    const t0 = performance.now();
+
+    const embedRes = await fetch('/api/embed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: query, model: cfg.embedModel }),
+    });
+    if (!embedRes.ok) {
+      const e = await embedRes.json();
+      throw new Error(`OpenAI embed: ${e.error?.message || embedRes.status}`);
+    }
+    const embedData = await embedRes.json();
+    const queryVec = embedData.data[0].embedding;
+    const embedMs  = Math.round(performance.now() - t0);
+    document.getElementById('m-embed').textContent = embedMs;
+
+    // ── Step 2: Query Pinecone ────────────────────────────────────────────────
+    document.getElementById('answer-panel').innerHTML = `<div class="empty"><div class="e-icon">🌲</div><p>Querying Pinecone...</p></div>`;
+
+    const t1 = performance.now();
+
+    const queryBody = {
+      vector: queryVec,
+      topK,
+      includeMetadata: true,
+      ...(ns && { namespace: ns })
+    };
+
+    const pineconeRes = await fetch('/api/pinecone/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryBody),
+    });
+    if (!pineconeRes.ok) {
+      const e = await pineconeRes.json();
+      throw new Error(`Pinecone query: ${e.message || pineconeRes.status}`);
+    }
+    const pineconeData = await pineconeRes.json();
+    const retrievalMs  = Math.round(performance.now() - t1);
+
+    let matches = pineconeData.matches || [];
+
+    // Apply min score filter
+    if (minScore > 0) {
+      matches = matches.filter(m => m.score >= minScore);
+    }
+
+    document.getElementById('retrieval-timing').textContent = `${retrievalMs}ms`;
+    document.getElementById('m-latency').textContent = retrievalMs;
+    document.getElementById('m-chunks').textContent  = matches.length;
+    document.getElementById('m-score').textContent   = matches.length ? matches[0].score.toFixed(3) : '—';
+    document.getElementById('m-tokens').textContent  = matches.length
+      ? Math.round(matches.reduce((a, m) => a + (m.metadata?.text?.length || 0), 0) / 4)
+      : '—';
+
+    if (matches.length === 0) {
+      document.getElementById('chunks-panel').innerHTML = `<div class="empty"><div class="e-icon">🔍</div><p>No results above score threshold.<br>Try lowering min score.</p></div>`;
+      document.getElementById('answer-panel').innerHTML  = `<div class="empty"><div class="e-icon">💬</div><p>No context to generate from.</p></div>`;
+      isLoading = false;
+      document.getElementById('search-btn').disabled = false;
+      return;
+    }
+
+    // Render chunks
+    const chunksHtml = matches.map((m, i) => {
+      const text   = m.metadata?.text || '(no text)';
+      const source = m.metadata?.source || m.id;
+      const title  = m.metadata?.title || '';
+      return `
+        <div class="chunk">
+          <div class="chunk-score">${m.score.toFixed(3)}</div>
+          ${title ? `<div class="chunk-title">${escapeHtml(title)}</div>` : ''}
+          <div class="chunk-source">${escapeHtml(source.replace('https://',''))}</div>
+          <div class="chunk-text">${highlightTerms(text.slice(0, 280) + (text.length > 280 ? '…' : ''), query)}</div>
+        </div>`;
+    }).join('');
+    document.getElementById('chunks-panel').innerHTML = chunksHtml;
+
+    // Source links
+    const uniqueSources = [...new Set(matches.map(m => m.metadata?.source).filter(Boolean))];
+    document.getElementById('source-links').innerHTML = uniqueSources
+      .map(u => `<a class="source-link" href="${u}" target="_blank">${u.split('/').slice(-2).join('/')}</a>`)
+      .join('');
+    document.getElementById('sources-bar').classList.add('visible');
+
+    // ── Step 3: Claude generation ─────────────────────────────────────────────
+    document.getElementById('answer-panel').innerHTML = `<div class="answer-text"><span class="cursor"></span></div>`;
+
+    const context = matches.map((m, i) =>
+      `[${i+1}] ${m.metadata?.source || ''}\n${m.metadata?.text || ''}`
+    ).join('\n\n');
+
+    const systemPrompt = `You are a precise technical assistant answering questions using only the provided Pinecone documentation context.
+
+Rules:
+- Answer using ONLY the provided context
+- Use inline citations [1][2][3] after each factual claim  
+- Be concise and technical — 3–5 sentences
+- Lead with the most important insight
+- If context is insufficient, say so clearly`;
+
+    const t2 = performance.now();
+
+    const claudeRes = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: cfg.claudeModel,
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Context:\n${context}\n\nQuestion: ${query}\n\nAnswer with inline citations:` }],
+      }),
+    });
+    if (!claudeRes.ok) {
+      const e = await claudeRes.json();
+      throw new Error(`Claude: ${e.error?.message || claudeRes.status}`);
+    }
+    const claudeData = await claudeRes.json();
+    const rawAnswer  = claudeData.content?.[0]?.text || 'No response generated.';
+    const genMs      = Math.round(performance.now() - t2);
+    document.getElementById('gen-timing').textContent = `${genMs}ms`;
+
+    // Format and type out answer
+    const formatted = rawAnswer.replace(/\[(\d+)\]/g, '<span class="citation">[$1]</span>');
+    await typeAnswer(formatted);
+
+  } catch(err) {
+    document.getElementById('chunks-panel').innerHTML = `<div class="empty"><div class="e-icon">⚠</div><p>Retrieval error</p></div>`;
+    document.getElementById('answer-panel').innerHTML  = '';
+    showError(err.message);
+  }
+
+  isLoading = false;
+  document.getElementById('search-btn').disabled = false;
+}
+
+async function typeAnswer(html) {
+  const panel = document.getElementById('answer-panel');
+  panel.innerHTML = `<div class="answer-text"></div>`;
+  const el = panel.querySelector('.answer-text');
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const plain = tmp.textContent;
+
+  let i = 0;
+  const speed = Math.max(6, 1800 / plain.length);
+  await new Promise(resolve => {
+    const iv = setInterval(() => {
+      i += 4;
+      el.textContent = plain.slice(0, i);
+      if (i >= plain.length) { clearInterval(iv); resolve(); }
+    }, speed);
+  });
+  el.innerHTML = html;
+}
+</script>
+</body>
+</html>

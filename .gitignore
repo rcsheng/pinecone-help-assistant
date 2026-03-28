@@ -1,0 +1,16 @@
+# Environment
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Generated docs
+assistant_docs/
+
+# PDFs
+*.pdf

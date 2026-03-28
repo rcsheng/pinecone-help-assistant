@@ -1,0 +1,9 @@
+{
+  "index_name": "pinecone-docs-demo",
+  "embed_model": "text-embedding-3-small",
+  "embed_dim": 1536,
+  "total_chunks": 37,
+  "pages_scraped": 17,
+  "chunk_size": 400,
+  "chunk_overlap": 60
+}
