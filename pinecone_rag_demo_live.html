@@ -5,24 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pinecone Knowledge Layer · Live Demo</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
   :root {
-    --bg: #050810;
-    --surface: #0c1020;
-    --surface2: #111828;
-    --border: #1e2d45;
-    --pine: #00d4a0;
-    --pine-dim: rgba(0,212,160,0.10);
-    --pine-glow: rgba(0,212,160,0.30);
-    --amber: #f5a623;
-    --amber-dim: rgba(245,166,35,0.12);
-    --red: #ff5454;
-    --red-dim: rgba(255,84,84,0.08);
-    --text: #e8edf5;
-    --muted: #6b7fa3;
-    --mono: 'JetBrains Mono', monospace;
-    --sans: 'Syne', sans-serif;
+    --bg:        #FBFBFC;
+    --surface:   #FFFFFF;
+    --surface2:  #F2F3F6;
+    --border:    #E7E5E4;
+    --divider:   #D8DDDF;
+    --pine:      #002BFF;
+    --pine-dim:  rgba(0,43,255,0.06);
+    --pine-glow: rgba(0,43,255,0.18);
+    --pine-mid:  #1E86EE;
+    --amber:     #DD815D;
+    --amber-dim: rgba(221,129,93,0.10);
+    --red:       #E31957;
+    --red-dim:   rgba(227,25,87,0.07);
+    --green:     #15B077;
+    --text:      #1C1917;
+    --muted:     #72788D;
+    --sans:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono:      'SF Mono', 'Fira Code', ui-monospace, monospace;
+    --radius:    8px;
+    --radius-sm: 4px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow:    0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -33,58 +40,38 @@
     font-family: var(--sans);
     min-height: 100vh;
     overflow-x: hidden;
-  }
-
-  body::before {
-    content:'';
-    position:fixed; inset:0;
-    background-image:
-      linear-gradient(rgba(0,212,160,.025) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(0,212,160,.025) 1px,transparent 1px);
-    background-size:40px 40px;
-    pointer-events:none; z-index:0;
-  }
-
-  body::after {
-    content:'';
-    position:fixed; top:-200px; left:50%; transform:translateX(-50%);
-    width:800px; height:400px;
-    background:radial-gradient(ellipse,rgba(0,212,160,.06) 0%,transparent 70%);
-    pointer-events:none; z-index:0;
+    -webkit-font-smoothing: antialiased;
   }
 
   .container {
-    max-width:960px; margin:0 auto;
-    padding:0 24px 80px;
-    position:relative; z-index:1;
+    max-width:980px; margin:0 auto;
+    padding:0 32px 80px;
   }
 
   /* ── Header ── */
   header {
-    padding:36px 0 40px;
-    display:flex; align-items:center; gap:16px;
+    padding:20px 0 20px;
+    display:flex; align-items:center; gap:12px;
     border-bottom:1px solid var(--border);
-    margin-bottom:40px;
+    margin-bottom:32px;
   }
 
   .logo-mark {
-    width:34px; height:34px;
-    background:var(--pine);
-    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-    flex-shrink:0;
-    animation:pulse-logo 3s ease-in-out infinite;
+    display:flex; align-items:center; gap:8px; flex-shrink:0; text-decoration:none;
   }
-  @keyframes pulse-logo { 0%,100%{opacity:1} 50%{opacity:.55} }
+  .logo-mark svg { width:28px; height:28px; }
 
-  .header-text h1 { font-size:14px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--pine); }
-  .header-text p  { font-size:11px; color:var(--muted); letter-spacing:.06em; margin-top:2px; font-family:var(--mono); }
+  .header-text h1 {
+    font-size:15px; font-weight:700; color:var(--text); letter-spacing:-.01em;
+  }
+  .header-text p { display:none; }
 
   .live-badge {
     margin-left:auto;
-    display:flex; align-items:center; gap:7px;
+    display:flex; align-items:center; gap:6px;
     background:var(--pine-dim); border:1px solid var(--pine-glow);
-    color:var(--pine); font-family:var(--mono); font-size:10px;
-    padding:5px 12px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--pine); font-size:11px; font-weight:500;
+    padding:4px 10px; border-radius:20px; letter-spacing:0;
   }
   .live-dot {
     width:6px; height:6px; border-radius:50%;
@@ -95,59 +82,62 @@
 
   /* ── Connection bar ── */
   .conn-bar {
-    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    border:1px solid var(--border); background:var(--surface2);
-    padding:11px 18px; margin-bottom:40px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    border:1px solid var(--border); background:var(--surface);
+    padding:10px 16px; margin-bottom:28px; border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);
   }
-  .conn-label { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-right:4px; }
+  .conn-label { font-size:11px; font-weight:500; color:var(--muted); margin-right:4px; }
   .conn-pill {
-    font-family:var(--mono); font-size:9px; padding:3px 9px;
-    border:1px solid var(--border); text-transform:uppercase; letter-spacing:.08em;
+    font-size:11px; font-weight:500; padding:3px 10px;
+    border:1px solid var(--border); border-radius:20px;
   }
-  .conn-pill.ok   { border-color:var(--pine-glow); color:var(--pine); background:var(--pine-dim); }
-  .conn-pill.miss { border-color:rgba(245,166,35,.3); color:var(--amber); background:var(--amber-dim); }
-  .conn-pill.err  { border-color:rgba(255,84,84,.3);  color:var(--red);   background:var(--red-dim); }
+  .conn-pill.ok   { border-color:rgba(21,176,119,.3); color:#15B077; background:rgba(21,176,119,.07); }
+  .conn-pill.miss { border-color:rgba(221,129,93,.3); color:var(--amber); background:var(--amber-dim); }
+  .conn-pill.err  { border-color:rgba(227,25,87,.2);  color:var(--red);  background:var(--red-dim); }
 
   /* ── Mode tabs ── */
   .mode-tabs {
     display:flex; gap:0; margin-bottom:28px;
-    border:1px solid var(--border); overflow:hidden; width:fit-content;
+    border-bottom:1px solid var(--border);
   }
   .mode-tab {
-    background:var(--surface); border:none; color:var(--muted);
-    font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
-    padding:10px 22px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:7px;
+    background:transparent; border:none; border-bottom:2px solid transparent;
+    color:var(--muted); font-family:var(--sans); font-size:13px; font-weight:500;
+    padding:10px 18px; cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; gap:6px;
+    margin-bottom:-1px;
   }
-  .mode-tab + .mode-tab { border-left:1px solid var(--border); }
   .mode-tab:hover { color:var(--text); }
-  .mode-tab.active { background:var(--pine-dim); color:var(--pine); border-color:var(--pine-glow); }
+  .mode-tab.active { color:var(--pine); border-bottom-color:var(--pine); }
 
   /* ── Hero ── */
-  .hero { margin-bottom:40px; }
-  .hero h2 { font-size:clamp(26px,5vw,44px); font-weight:800; line-height:1.08; letter-spacing:-.02em; margin-bottom:10px; }
+  .hero { margin-bottom:32px; }
+  .hero h2 { font-size:clamp(22px,4vw,36px); font-weight:700; line-height:1.15; letter-spacing:-.02em; margin-bottom:8px; color:var(--text); }
   .hero h2 span { color:var(--pine); }
-  .hero p { font-size:14px; color:var(--muted); line-height:1.65; max-width:580px; }
+  .hero p { font-size:14px; color:var(--muted); line-height:1.65; max-width:600px; }
 
   /* ── Arch strip ── */
   .arch-strip {
     display:flex; align-items:center;
-    margin-bottom:40px;
+    margin-bottom:28px;
     background:var(--surface); border:1px solid var(--border);
-    padding:18px 22px; overflow-x:auto; gap:0;
+    padding:16px 20px; overflow-x:auto; gap:0;
+    border-radius:var(--radius); box-shadow:var(--shadow-sm);
   }
 
   .arch-node { display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; }
   .arch-node .icon {
-    width:42px; height:42px; border:1px solid var(--border); background:var(--surface2);
-    display:flex; align-items:center; justify-content:center; font-size:17px;
-    transition:all .3s;
+    width:40px; height:40px; border:1px solid var(--border); background:var(--surface2);
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    transition:all .3s; border-radius:var(--radius-sm);
   }
-  .arch-node .label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; text-align:center; }
-  .arch-node.active .icon  { border-color:var(--pine); background:var(--pine-dim); }
+  .arch-node .label { font-size:9px; font-weight:500; color:var(--muted); text-align:center; letter-spacing:.01em; text-transform:uppercase; }
+  .arch-node.active .icon  { border-color:var(--pine-glow); background:var(--pine-dim); }
   .arch-node.active .label { color:var(--pine); }
 
   .arch-arrow {
-    flex:1; min-width:24px; height:1px; background:var(--border);
+    flex:1; min-width:24px; height:1px; background:var(--divider);
     position:relative; margin:0 2px; margin-bottom:18px; transition:background .3s;
   }
   .arch-arrow::after { content:'▶'; position:absolute; right:-6px; top:-7px; font-size:8px; color:var(--muted); }
@@ -155,81 +145,82 @@
   .arch-arrow.lit::after { color:var(--pine); }
 
   /* ── Metrics ── */
-  .metrics-bar { display:flex; border:1px solid var(--border); margin-bottom:36px; overflow:hidden; }
+  .metrics-bar { display:flex; border:1px solid var(--border); margin-bottom:28px; overflow:hidden; border-radius:var(--radius); box-shadow:var(--shadow-sm); background:var(--surface); }
   .metric { flex:1; padding:14px 16px; border-right:1px solid var(--border); text-align:center; }
   .metric:last-child { border-right:none; }
-  .metric .val { font-size:20px; font-weight:800; color:var(--pine); font-family:var(--mono); letter-spacing:-.02em; }
-  .metric .lbl { font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-top:2px; font-family:var(--mono); }
+  .metric .val { font-size:18px; font-weight:700; color:var(--pine); letter-spacing:-.02em; }
+  .metric .lbl { font-size:11px; font-weight:500; color:var(--muted); margin-top:2px; }
 
   /* ── Query ── */
-  .section-label { font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .section-label { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
 
-  .input-wrap { display:flex; border:1px solid var(--border); background:var(--surface); transition:border-color .2s; }
+  .input-wrap { display:flex; border:1px solid var(--border); background:var(--surface); transition:border-color .2s; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
   .input-wrap:focus-within { border-color:var(--pine); box-shadow:0 0 0 3px var(--pine-dim); }
 
   #query-input {
     flex:1; background:transparent; border:none; outline:none;
-    color:var(--text); font-family:var(--sans); font-size:14px; padding:14px 18px;
+    color:var(--text); font-family:var(--sans); font-size:14px; padding:13px 16px;
   }
   #query-input::placeholder { color:var(--muted); }
 
   #search-btn {
-    background:var(--pine); color:#050810; border:none; padding:14px 22px;
-    font-family:var(--sans); font-size:12px; font-weight:700;
-    letter-spacing:.06em; cursor:pointer; text-transform:uppercase;
-    transition:opacity .2s; white-space:nowrap;
+    background:var(--pine); color:#fff; border:none; padding:13px 22px;
+    font-family:var(--sans); font-size:13px; font-weight:600;
+    cursor:pointer; transition:background .15s; white-space:nowrap;
   }
-  #search-btn:hover { opacity:.85; }
-  #search-btn:disabled { opacity:.35; cursor:not-allowed; }
+  #search-btn:hover { background:#1A3FFF; }
+  #search-btn:disabled { opacity:.4; cursor:not-allowed; }
 
   .query-opts { display:flex; align-items:center; gap:16px; margin-top:10px; flex-wrap:wrap; }
 
   .opt-group { display:flex; align-items:center; gap:7px; }
-  .opt-group label { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.06em; }
+  .opt-group label { font-size:12px; font-weight:500; color:var(--muted); }
   .opt-group select {
-    background:var(--surface2); border:1px solid var(--border);
-    color:var(--text); font-family:var(--mono); font-size:10px;
-    padding:4px 8px; outline:none; cursor:pointer;
+    background:var(--surface); border:1px solid var(--border);
+    color:var(--text); font-family:var(--sans); font-size:12px;
+    padding:4px 8px; outline:none; cursor:pointer; border-radius:var(--radius-sm);
   }
 
-  .hint-chips { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+  .hint-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
   .hint-chip {
-    font-family:var(--mono); font-size:10px; color:var(--muted);
-    border:1px solid var(--border); padding:4px 10px; cursor:pointer; transition:all .15s;
+    font-size:12px; color:var(--muted);
+    border:1px solid var(--border); background:var(--surface); padding:4px 12px;
+    cursor:pointer; transition:all .15s; border-radius:20px;
   }
-  .hint-chip:hover { color:var(--pine); border-color:var(--pine); }
+  .hint-chip:hover { color:var(--pine); border-color:var(--pine-glow); background:var(--pine-dim); }
 
   /* ── Results ── */
   .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
   @media(max-width:640px){ .results-grid{ grid-template-columns:1fr; } }
 
-  .panel { border:1px solid var(--border); background:var(--surface); }
+  .panel { border:1px solid var(--border); background:var(--surface); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
   .panel-header {
-    padding:11px 16px; border-bottom:1px solid var(--border);
+    padding:10px 16px; border-bottom:1px solid var(--border);
     display:flex; align-items:center; gap:8px; background:var(--surface2);
   }
-  .panel-header .dot { width:6px; height:6px; background:var(--pine); }
-  .panel-header span { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
-  .panel-header .timing { margin-left:auto; color:var(--amber); font-family:var(--mono); font-size:10px; }
+  .panel-header .dot { width:6px; height:6px; background:var(--pine); border-radius:50%; }
+  .panel-header span { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+  .panel-header .timing { margin-left:auto; color:var(--amber); font-size:11px; font-weight:500; }
 
   .panel-body { padding:14px; min-height:200px; max-height:440px; overflow-y:auto; }
 
   /* Chunks */
   .chunk {
-    border:1px solid var(--border); padding:12px 13px; margin-bottom:9px;
+    border:1px solid var(--border); padding:12px 13px; margin-bottom:8px;
     position:relative; opacity:0; transform:translateY(5px);
-    animation:chunk-in .3s ease forwards;
+    animation:chunk-in .3s ease forwards; border-radius:var(--radius-sm);
+    background:var(--surface);
   }
   @keyframes chunk-in { to{ opacity:1; transform:translateY(0); } }
   .chunk:nth-child(1){animation-delay:.05s} .chunk:nth-child(2){animation-delay:.15s}
   .chunk:nth-child(3){animation-delay:.25s} .chunk:nth-child(4){animation-delay:.35s}
   .chunk:nth-child(5){animation-delay:.45s}
 
-  .chunk-score { position:absolute; top:9px; right:11px; font-family:var(--mono); font-size:10px; color:var(--pine); }
-  .chunk-source { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:5px; }
-  .chunk-text { font-size:12px; line-height:1.65; color:#c2cfe0; }
-  .chunk-text mark { background:var(--amber-dim); color:var(--amber); padding:0 2px; }
-  .chunk-title { font-size:10px; font-weight:700; color:var(--pine); margin-bottom:3px; font-family:var(--mono); }
+  .chunk-score { position:absolute; top:9px; right:11px; font-family:var(--mono); font-size:10px; color:var(--pine); font-weight:600; }
+  .chunk-source { font-size:10px; font-weight:500; color:var(--muted); margin-bottom:5px; }
+  .chunk-text { font-size:12px; line-height:1.65; color:#444; }
+  .chunk-text mark { background:rgba(221,129,93,0.12); color:var(--amber); padding:0 2px; }
+  .chunk-title { font-size:11px; font-weight:600; color:var(--pine); margin-bottom:3px; }
 
   /* Answer */
   .answer-text { font-size:14px; line-height:1.78; color:var(--text); }
@@ -237,220 +228,338 @@
     display:inline-block; background:var(--pine-dim); border:1px solid var(--pine-glow);
     color:var(--pine); font-family:var(--mono); font-size:9px;
     padding:1px 5px; vertical-align:super; margin:0 2px; line-height:1.2;
+    border-radius:3px;
   }
 
-  .cursor { display:inline-block; width:8px; height:14px; background:var(--pine); animation:blink .7s step-end infinite; vertical-align:text-bottom; margin-left:2px; }
+  .cursor { display:inline-block; width:2px; height:16px; background:var(--pine); animation:blink .7s step-end infinite; vertical-align:text-bottom; margin-left:2px; }
   @keyframes blink{ 50%{opacity:0} }
 
   /* Loading */
-  .loading-bar { height:2px; background:linear-gradient(90deg,var(--pine),#00a0ff,var(--pine)); background-size:200%; animation:shimmer 1.2s linear infinite; }
+  .loading-bar { height:2px; background:linear-gradient(90deg,var(--pine),var(--pine-mid),var(--pine)); background-size:200%; animation:shimmer 1.2s linear infinite; }
   @keyframes shimmer{ from{background-position:200% 0} to{background-position:-200% 0} }
 
   .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:180px; color:var(--muted); gap:8px; text-align:center; }
-  .empty .e-icon { font-size:26px; opacity:.3; }
-  .empty p { font-size:11px; font-family:var(--mono); letter-spacing:.06em; }
+  .empty .e-icon { font-size:28px; opacity:.4; }
+  .empty p { font-size:12px; color:var(--muted); }
 
-  .error-msg { color:var(--red); font-family:var(--mono); font-size:11px; padding:11px 14px; border:1px solid rgba(255,84,84,.2); background:var(--red-dim); margin-top:8px; line-height:1.6; }
+  .error-msg { color:var(--red); font-size:12px; padding:10px 14px; border:1px solid rgba(227,25,87,.2); background:var(--red-dim); margin-top:8px; line-height:1.6; border-radius:var(--radius-sm); }
 
   /* Sources footer */
   .sources-bar {
-    border:1px solid var(--border); background:var(--surface2);
-    padding:12px 16px; margin-bottom:32px;
-    display:none;
+    border:1px solid var(--border); background:var(--surface);
+    padding:12px 16px; margin-bottom:24px;
+    display:none; border-radius:var(--radius); box-shadow:var(--shadow-sm);
   }
   .sources-bar.visible { display:block; }
-  .sources-bar-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .sources-bar-label { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:8px; }
   .source-links { display:flex; gap:8px; flex-wrap:wrap; }
-  .source-link { font-family:var(--mono); font-size:10px; color:var(--pine); border:1px solid var(--pine-glow); padding:3px 8px; text-decoration:none; }
-  .source-link:hover { background:var(--pine-dim); }
+  .source-link { font-size:12px; color:var(--pine); border:1px solid var(--pine-glow); padding:3px 10px; text-decoration:none; border-radius:20px; background:var(--pine-dim); }
+  .source-link:hover { background:var(--pine); color:#fff; }
 
   /* Footer */
-  .footnote { font-family:var(--mono); font-size:10px; color:var(--muted); text-align:center; margin-top:40px; letter-spacing:.06em; border-top:1px solid var(--border); padding-top:22px; line-height:1.9; }
+  .footnote { font-size:12px; color:var(--muted); text-align:center; margin-top:40px; border-top:1px solid var(--border); padding-top:22px; line-height:1.9; }
   .footnote span { color:var(--pine); }
 
   /* ── Retrieval Explorer ── */
-  .ex-card { border:1px solid var(--border); margin-bottom:8px; }
+  .ex-card { border:1px solid var(--border); margin-bottom:8px; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
   .ex-card-header {
     display:flex; align-items:center; gap:10px; padding:12px 16px;
-    cursor:pointer; background:var(--surface2); user-select:none; transition:background .15s;
+    cursor:pointer; background:var(--surface); user-select:none; transition:background .15s;
   }
-  .ex-card-header:hover { background:var(--surface); }
+  .ex-card-header:hover { background:var(--surface2); }
   .ex-card-icon { font-size:14px; flex-shrink:0; }
-  .ex-card-title {
-    font-family:var(--mono); font-size:11px; color:var(--text);
-    letter-spacing:.08em; text-transform:uppercase; flex-shrink:0;
-  }
-  .ex-card-summary {
-    font-family:var(--mono); font-size:10px; color:var(--muted);
-    flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-left:4px;
-  }
+  .ex-card-title { font-size:12px; font-weight:600; color:var(--text); flex-shrink:0; }
+  .ex-card-summary { font-size:12px; color:var(--muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-left:4px; }
   .ex-badge {
-    font-family:var(--mono); font-size:9px; padding:2px 7px;
-    letter-spacing:.08em; text-transform:uppercase; border:1px solid; flex-shrink:0;
+    font-size:11px; font-weight:500; padding:2px 8px;
+    border:1px solid; flex-shrink:0; border-radius:20px;
   }
-  .ex-badge.info { color:var(--muted); border-color:var(--border); }
-  .ex-badge.warn { color:var(--amber); border-color:rgba(245,166,35,.3); background:var(--amber-dim); }
+  .ex-badge.info { color:var(--muted); border-color:var(--border); background:var(--surface2); }
+  .ex-badge.warn { color:var(--amber); border-color:rgba(221,129,93,.3); background:var(--amber-dim); }
   .ex-chevron { font-size:9px; color:var(--muted); flex-shrink:0; transition:transform .2s; }
   .ex-chevron.open { transform:rotate(180deg); }
-  .ex-card-body { padding:16px; border-top:1px solid var(--border); background:var(--surface); }
+  .ex-card-body { padding:16px; border-top:1px solid var(--border); background:var(--surface2); }
 
   .ex-field { margin-bottom:18px; }
   .ex-field:last-child { margin-bottom:0; }
-  .ex-field-label {
-    font-family:var(--mono); font-size:10px; color:var(--muted);
-    letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; display:block;
-  }
-  .ex-helper { font-family:var(--mono); font-size:10px; color:var(--muted); line-height:1.6; margin-top:7px; }
+  .ex-field-label { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:8px; display:block; }
+  .ex-helper { font-size:12px; color:var(--muted); line-height:1.6; margin-top:7px; }
 
-  .ex-btn-group { display:flex; }
+  .ex-btn-group { display:flex; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
   .ex-btn-opt {
-    flex:1; background:var(--surface2); border:1px solid var(--border);
-    color:var(--muted); font-family:var(--mono); font-size:10px;
-    letter-spacing:.05em; padding:7px 6px; cursor:pointer;
-    transition:all .15s; text-transform:uppercase; white-space:nowrap;
+    flex:1; background:var(--surface); border:none; border-right:1px solid var(--border);
+    color:var(--muted); font-family:var(--sans); font-size:12px; font-weight:500;
+    padding:7px 10px; cursor:pointer; transition:all .15s; white-space:nowrap;
   }
-  .ex-btn-opt + .ex-btn-opt { border-left:none; }
-  .ex-btn-opt:hover:not(:disabled) { color:var(--text); }
-  .ex-btn-opt.active { background:var(--pine-dim); color:var(--pine); border-color:var(--pine-glow); }
+  .ex-btn-opt:last-child { border-right:none; }
+  .ex-btn-opt:hover:not(:disabled) { background:var(--surface2); color:var(--text); }
+  .ex-btn-opt.active { background:var(--pine-dim); color:var(--pine); font-weight:600; }
   .ex-btn-opt:disabled { opacity:.35; cursor:not-allowed; }
 
-  .ex-callout { border:1px solid var(--border); background:var(--surface2); padding:12px 14px; }
-  .ex-callout-title {
-    font-family:var(--mono); font-size:10px; color:var(--pine);
-    letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px;
-  }
-  .ex-callout p { font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.65; }
+  .ex-callout { border:1px solid var(--border); background:var(--surface); padding:12px 14px; border-radius:var(--radius-sm); }
+  .ex-callout-title { font-size:11px; font-weight:600; color:var(--pine); letter-spacing:.04em; text-transform:uppercase; margin-bottom:8px; }
+  .ex-callout p { font-size:12px; color:var(--muted); line-height:1.65; }
   .ex-stat-row { display:flex; gap:8px; margin-top:10px; }
-  .ex-stat { flex:1; border:1px solid var(--border); padding:8px 10px; text-align:center; }
-  .ex-stat-val { font-family:var(--mono); font-size:13px; color:var(--pine); font-weight:700; }
-  .ex-stat-lbl { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-top:2px; }
+  .ex-stat { flex:1; border:1px solid var(--border); padding:8px 10px; text-align:center; border-radius:var(--radius-sm); background:var(--surface); }
+  .ex-stat-val { font-size:14px; color:var(--pine); font-weight:700; }
+  .ex-stat-lbl { font-size:10px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-top:2px; }
 
   .ex-toggle-wrap { display:flex; align-items:center; gap:10px; }
   .ex-toggle {
-    width:36px; height:20px; background:var(--surface2); border:1px solid var(--border);
-    position:relative; cursor:pointer; flex-shrink:0; transition:all .2s;
+    width:36px; height:20px; background:var(--divider); border:none;
+    position:relative; cursor:pointer; flex-shrink:0; transition:all .2s; border-radius:10px;
   }
-  .ex-toggle.on { background:var(--pine-dim); border-color:var(--pine-glow); }
+  .ex-toggle.on { background:var(--pine); }
   .ex-toggle::after {
     content:''; position:absolute; top:3px; left:3px;
-    width:12px; height:12px; background:var(--muted); transition:all .2s;
+    width:14px; height:14px; background:#fff; border-radius:50%; transition:all .2s;
+    box-shadow:0 1px 3px rgba(0,0,0,0.15);
   }
-  .ex-toggle.on::after { left:19px; background:var(--pine); }
-  .ex-toggle-lbl { font-family:var(--mono); font-size:10px; color:var(--muted); }
+  .ex-toggle.on::after { left:19px; }
+  .ex-toggle-lbl { font-size:12px; color:var(--muted); }
 
   .ex-conditional { display:none; padding-top:14px; border-top:1px solid var(--border); margin-top:14px; }
   .ex-conditional.visible { display:block; }
 
   .ex-run-btn {
-    width:100%; background:var(--pine); color:#050810; border:none;
-    padding:14px; margin-top:20px; margin-bottom:28px;
-    font-family:var(--sans); font-size:13px; font-weight:700;
-    letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:opacity .2s;
+    width:100%; background:var(--pine); color:#fff; border:none;
+    padding:13px; margin-top:20px; margin-bottom:28px;
+    font-family:var(--sans); font-size:14px; font-weight:600;
+    cursor:pointer; transition:background .15s; border-radius:var(--radius);
   }
-  .ex-run-btn:hover { opacity:.85; }
-  .ex-run-btn:disabled { opacity:.35; cursor:not-allowed; }
+  .ex-run-btn:hover { background:#1A3FFF; }
+  .ex-run-btn:disabled { opacity:.4; cursor:not-allowed; }
 
   .ex-results-empty {
     border:1px solid var(--border); padding:60px 40px;
     display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center;
+    border-radius:var(--radius); background:var(--surface);
   }
-  .ex-results-empty .e-icon { font-size:32px; opacity:.3; }
-  .ex-results-empty p { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .ex-results-empty .e-icon { font-size:32px; opacity:.4; }
+  .ex-results-empty p { font-size:13px; color:var(--muted); }
 
   /* ── Explorer results ── */
-  .ex-trace-bar { border:1px solid var(--border); background:var(--surface2); margin-bottom:12px; }
-  .ex-trace-hdr {
-    display:flex; align-items:center; gap:8px; padding:10px 14px;
-    cursor:pointer; user-select:none;
-  }
-  .ex-trace-hdr-label { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; flex:1; }
+  .ex-trace-bar { border:1px solid var(--border); background:var(--surface); margin-bottom:12px; border-radius:var(--radius-sm); overflow:hidden; }
+  .ex-trace-hdr { display:flex; align-items:center; gap:8px; padding:10px 14px; cursor:pointer; user-select:none; }
+  .ex-trace-hdr-label { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; flex:1; }
   .ex-trace-body { padding:12px 14px; border-top:1px solid var(--border); }
-  .ex-trace-row { display:flex; gap:10px; margin-bottom:6px; font-family:var(--mono); font-size:10px; }
+  .ex-trace-row { display:flex; gap:10px; margin-bottom:6px; font-size:12px; }
   .ex-trace-row:last-child { margin-bottom:0; }
-  .ex-trace-key { color:var(--muted); min-width:150px; flex-shrink:0; }
+  .ex-trace-key { color:var(--muted); min-width:150px; flex-shrink:0; font-weight:500; }
   .ex-trace-val { color:var(--text); flex:1; }
   .ex-tq-pill {
     display:inline-block; background:var(--pine-dim); border:1px solid var(--pine-glow);
-    color:var(--pine); padding:2px 7px; margin:2px 3px 2px 0; font-size:10px; line-height:1.5;
+    color:var(--pine); padding:2px 8px; margin:2px 3px 2px 0; font-size:11px; line-height:1.5; border-radius:20px;
   }
 
-  .ex-section-hdr { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin:16px 0 8px; }
+  .ex-section-hdr { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin:16px 0 8px; }
 
   .ex-chunk-card {
-    border:1px solid var(--border); padding:11px 13px; margin-bottom:8px;
-    background:var(--surface);
+    border:1px solid var(--border); padding:12px 14px; margin-bottom:8px;
+    background:var(--surface); border-radius:var(--radius-sm);
     opacity:0; transform:translateY(4px); animation:chunk-in .25s ease forwards;
+    box-shadow:var(--shadow-sm);
   }
-  .ex-chunk-card.context-chunk { border-left:2px solid var(--pine); }
+  .ex-chunk-card.context-chunk { border-left:3px solid var(--pine); }
   .ex-chunk-card.out-of-context { opacity:.4 !important; }
   .ex-chunk-top { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
-  .ex-rank { font-family:var(--mono); font-size:10px; font-weight:700; padding:2px 7px; border:1px solid; flex-shrink:0; }
+  .ex-rank { font-size:11px; font-weight:600; padding:2px 8px; border:1px solid; flex-shrink:0; border-radius:20px; }
   .ex-rank.in  { background:var(--pine-dim); border-color:var(--pine-glow); color:var(--pine); }
   .ex-rank.out { background:var(--surface2); border-color:var(--border); color:var(--muted); }
-  .ex-rank-move { font-family:var(--mono); font-size:9px; padding:2px 6px; border:1px solid; flex-shrink:0; }
-  .ex-rank-move.up   { color:var(--pine);  border-color:var(--pine-glow); background:var(--pine-dim); }
-  .ex-rank-move.down { color:var(--amber); border-color:rgba(245,166,35,.3); background:var(--amber-dim); }
+  .ex-rank-move { font-size:10px; font-weight:500; padding:2px 7px; border:1px solid; flex-shrink:0; border-radius:20px; }
+  .ex-rank-move.up   { color:var(--green);  border-color:rgba(21,176,119,.3); background:rgba(21,176,119,.08); }
+  .ex-rank-move.down { color:var(--amber); border-color:rgba(221,129,93,.3); background:var(--amber-dim); }
   .ex-rank-move.same { color:var(--muted); border-color:var(--border); }
-  .ex-chunk-score { font-family:var(--mono); font-size:10px; color:var(--pine); margin-left:auto; }
+  .ex-chunk-score { font-family:var(--mono); font-size:11px; color:var(--pine); margin-left:auto; font-weight:600; }
   .ex-chunk-score s { color:var(--muted); margin-right:5px; text-decoration:line-through; }
-  .ex-chunk-src { font-family:var(--mono); font-size:9px; color:var(--muted); margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .ex-chunk-txt { font-size:12px; line-height:1.65; color:#c2cfe0; }
-  .ex-chunk-txt mark { background:var(--amber-dim); color:var(--amber); padding:0 2px; }
+  .ex-chunk-src { font-size:11px; color:var(--muted); margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ex-chunk-txt { font-size:13px; line-height:1.65; color:#555; }
+  .ex-chunk-txt mark { background:rgba(221,129,93,0.12); color:var(--amber); padding:0 2px; }
 
-  .ex-answer-box { border:1px solid var(--border); margin-top:16px; }
+  .ex-answer-box { border:1px solid var(--border); margin-top:16px; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
   .ex-answer-box-hdr {
     display:flex; align-items:center; gap:8px; padding:10px 14px;
     background:var(--surface2); border-bottom:1px solid var(--border);
   }
-  .ex-answer-box-hdr .dot { width:6px; height:6px; background:var(--pine); }
-  .ex-answer-box-hdr span { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-  .ex-answer-box-hdr .timing { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--amber); }
-  .ex-answer-box-body { padding:16px; }
+  .ex-answer-box-hdr .dot { width:6px; height:6px; background:var(--pine); border-radius:50%; }
+  .ex-answer-box-hdr span { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+  .ex-answer-box-hdr .timing { margin-left:auto; font-size:11px; font-weight:500; color:var(--amber); }
+  .ex-answer-box-body { padding:16px; background:var(--surface); }
   .ex-answer-txt { font-size:14px; line-height:1.78; color:var(--text); }
   .ex-answer-txt .citation {
     display:inline-block; background:var(--pine-dim); border:1px solid var(--pine-glow);
     color:var(--pine); font-family:var(--mono); font-size:9px;
-    padding:1px 5px; vertical-align:super; margin:0 2px; line-height:1.2;
+    padding:1px 5px; vertical-align:super; margin:0 2px; line-height:1.2; border-radius:3px;
   }
 
-  .ex-raw-box { border:1px solid var(--border); margin-top:10px; }
+  .ex-raw-box { border:1px solid var(--border); margin-top:10px; border-radius:var(--radius-sm); overflow:hidden; }
   .ex-raw-box-hdr {
     display:flex; align-items:center; gap:8px; padding:8px 12px;
     background:var(--surface2); border-bottom:1px solid var(--border); cursor:pointer;
   }
-  .ex-raw-box-hdr span { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+  .ex-raw-box-hdr span { font-size:11px; font-weight:500; color:var(--muted); }
   .ex-raw-box pre {
-    font-family:var(--mono); font-size:11px; color:#c2cfe0; padding:14px; margin:0;
+    font-family:var(--mono); font-size:12px; color:#444; padding:14px; margin:0;
     overflow-x:auto; white-space:pre-wrap; word-break:break-word; line-height:1.6;
+    background:var(--surface);
   }
 
   /* ── Compare mode ── */
   .ex-compare-toggle {
     display:flex; align-items:center; gap:10px;
-    border:1px solid var(--border); background:var(--surface2);
+    border:1px solid var(--border); background:var(--surface);
     padding:10px 16px; margin-bottom:16px; cursor:pointer; user-select:none;
+    border-radius:var(--radius); box-shadow:var(--shadow-sm);
   }
-  .ex-compare-toggle span { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; flex:1; }
-  .ex-compare-b { display:none; margin-bottom:20px; border:1px solid rgba(245,166,35,.3); }
+  .ex-compare-toggle span { font-size:12px; font-weight:500; color:var(--muted); flex:1; }
+  .ex-compare-b { display:none; margin-bottom:20px; border:1px solid rgba(221,129,93,.3); border-radius:var(--radius); overflow:hidden; }
   .ex-compare-b.visible { display:block; }
   .ex-compare-b-hdr {
     display:flex; align-items:center; gap:8px; padding:10px 14px;
-    background:var(--amber-dim); border-bottom:1px solid rgba(245,166,35,.3);
+    background:var(--amber-dim); border-bottom:1px solid rgba(221,129,93,.3);
   }
-  .ex-compare-b-hdr span { font-family:var(--mono); font-size:10px; color:var(--amber); letter-spacing:.08em; text-transform:uppercase; }
+  .ex-compare-b-hdr span { font-size:12px; font-weight:600; color:var(--amber); }
   .ex-compare-b-body { padding:14px; background:var(--surface); }
   .ex-compare-results { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media(max-width:700px){ .ex-compare-results{ grid-template-columns:1fr; } }
-  .ex-compare-col-lbl { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
-  .ex-compare-col-lbl::before { content:''; display:inline-block; width:8px; height:8px; }
+  .ex-compare-col-lbl { font-size:11px; font-weight:600; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .ex-compare-col-lbl::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; }
   .ex-compare-col-lbl.a { color:var(--pine); }
   .ex-compare-col-lbl.a::before { background:var(--pine); }
   .ex-compare-col-lbl.b { color:var(--amber); }
   .ex-compare-col-lbl.b::before { background:var(--amber); }
 
-  ::-webkit-scrollbar { width:4px; }
+  /* ── Retrieval Eval ── */
+  .ev-mode-toggle { display:flex; margin-bottom:20px; border-bottom:1px solid var(--border); }
+  .ev-mode-btn {
+    flex:1; padding:10px 16px; font-family:var(--sans); font-size:13px; font-weight:500;
+    border:none; border-bottom:2px solid transparent; background:transparent;
+    color:var(--muted); cursor:pointer; transition:all .15s; margin-bottom:-1px;
+  }
+  .ev-mode-btn.active { color:var(--pine); border-bottom-color:var(--pine); font-weight:600; }
+
+  .ev-mini-config { border:1px solid var(--border); background:var(--surface); padding:16px; margin-bottom:20px; border-radius:var(--radius); box-shadow:var(--shadow-sm); }
+  .ev-mini-title { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:14px; }
+  .ev-mini-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .ev-mini-row:last-child { margin-bottom:0; }
+  .ev-mini-lbl { font-size:12px; font-weight:500; color:var(--muted); min-width:130px; flex-shrink:0; }
+
+  .ev-preset-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:20px; }
+  @media(max-width:640px){ .ev-preset-grid{ grid-template-columns:repeat(2,1fr); } }
+  .ev-preset-card { border:1px solid var(--border); padding:14px; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-sm); }
+  .ev-preset-id { font-family:var(--mono); font-size:20px; font-weight:700; color:var(--pine); margin-bottom:4px; }
+  .ev-preset-label { font-size:12px; font-weight:600; color:var(--text); margin-bottom:6px; }
+  .ev-preset-desc { font-size:11px; color:var(--muted); line-height:1.6; }
+
+  .ev-dataset-section { margin-bottom:20px; }
+  .ev-dataset-label { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:8px; }
+  .ev-q-list { display:flex; flex-direction:column; gap:4px; }
+  .ev-q-item { font-size:12px; color:var(--muted); border:1px solid var(--border); background:var(--surface); border-radius:var(--radius-sm); overflow:hidden; }
+  .ev-q-item-hdr { display:flex; align-items:flex-start; gap:8px; padding:8px 12px; cursor:pointer; }
+  .ev-q-item-hdr:hover { background:var(--surface2); }
+  .ev-q-num { color:var(--pine); flex-shrink:0; font-weight:600; }
+  .ev-q-txt { flex:1; color:var(--text); }
+  .ev-q-ref { display:none; padding:10px 12px 10px 36px; border-top:1px solid var(--border); background:var(--surface2); color:var(--muted); font-size:12px; line-height:1.65; }
+  .ev-q-ref.open { display:block; }
+  .ev-q-ref-label { color:var(--pine); font-weight:600; font-size:10px; letter-spacing:.04em; text-transform:uppercase; margin-bottom:4px; }
+  .ev-q-chevron { font-size:8px; color:var(--muted); transition:transform .15s; flex-shrink:0; margin-top:2px; }
+  .ev-q-chevron.open { transform:rotate(180deg); }
+
+  /* Metrics explainer */
+  .ev-approach-note { font-size:12px; color:var(--muted); line-height:1.7; padding:12px 16px; border:1px solid var(--border); background:var(--surface2); margin-bottom:14px; border-radius:var(--radius-sm); }
+  .ev-metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+  @media(max-width:640px){ .ev-metric-grid{ grid-template-columns:1fr; } }
+  .ev-metric-def { border:1px solid var(--border); background:var(--surface); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
+  .ev-metric-def-hdr { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--surface2); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .ev-metric-name { font-size:12px; font-weight:600; color:var(--text); }
+  .ev-metric-weight { font-size:11px; color:var(--muted); margin-left:auto; }
+  .ev-metric-tag { font-size:10px; font-weight:500; padding:2px 8px; border:1px solid; border-radius:20px; }
+  .ev-metric-tag.ref-free  { color:var(--muted); border-color:var(--border); background:var(--surface2); }
+  .ev-metric-tag.ref-based { color:var(--pine); border-color:var(--pine-glow); background:var(--pine-dim); }
+  .ev-metric-body { padding:12px 14px; }
+  .ev-metric-body p { font-size:12px; color:var(--muted); line-height:1.65; margin-bottom:8px; }
+  .ev-metric-body em { color:var(--text); font-style:normal; font-weight:500; }
+  .ev-metric-examples { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+  .ev-ex { font-size:11px; padding:5px 10px; border-left:3px solid; border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+  .ev-ex.low  { color:var(--red);   border-color:var(--red);   background:var(--red-dim); }
+  .ev-ex.mid  { color:var(--amber); border-color:var(--amber); background:var(--amber-dim); }
+  .ev-ex.high { color:var(--green); border-color:var(--green); background:rgba(21,176,119,.07); }
+  .ev-metric-note { font-size:11px; color:var(--muted); margin-top:6px; opacity:.8; }
+  .ev-composite-formula { font-size:12px; color:var(--text); text-align:center; padding:12px; border:1px solid var(--border); background:var(--surface2); margin-bottom:20px; border-radius:var(--radius-sm); font-weight:500; }
+  .ev-metrics-explainer { margin-bottom:20px; }
+  .ev-score-chip.ar   { color:#7C3AED; border-color:rgba(124,58,237,.25); background:rgba(124,58,237,.07); }
+  .ev-score-chip.hr   { color:#0EA5E9; border-color:rgba(14,165,233,.3); background:rgba(14,165,233,.07); }
+  .ev-score-chip.miss { color:var(--red); border-color:rgba(227,25,87,.3); background:var(--red-dim); }
+  .ev-metric-chip { font-size:11px; font-weight:500; padding:3px 10px; border:1px solid; border-radius:20px; }
+  .ev-metric-chip.cr { color:var(--pine);  border-color:var(--pine-glow); background:var(--pine-dim); }
+  .ev-metric-chip.fa { color:#7C3AED;      border-color:rgba(124,58,237,.25); background:rgba(124,58,237,.07); }
+  .ev-metric-chip.ac { color:var(--amber); border-color:rgba(221,129,93,.3); background:var(--amber-dim); }
+  .ev-metric-chip.ar { color:#0EA5E9;      border-color:rgba(14,165,233,.3); background:rgba(14,165,233,.07); }
+  .ev-metric-chip.hr { color:var(--green); border-color:rgba(21,176,119,.3); background:rgba(21,176,119,.07); }
+  .ev-summary-table { width:100%; border-collapse:collapse; margin-top:8px; }
+  .ev-summary-table td { font-size:12px; padding:8px 14px; border:1px solid var(--border); }
+  .ev-summary-table .ev-sum-lbl { color:var(--muted); background:var(--surface2); }
+  .ev-summary-table .ev-sum-val { color:var(--text); text-align:right; background:var(--surface); }
+
+  /* Progress */
+  .ev-progress-section { margin-top:20px; }
+  .ev-progress-lbl { font-size:12px; font-weight:500; color:var(--muted); margin-bottom:12px; }
+  .ev-grid-wrap { overflow-x:auto; margin-bottom:16px; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
+  .ev-grid-table { border-collapse:collapse; width:100%; }
+  .ev-grid-table th { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; padding:8px 12px; border:1px solid var(--border); background:var(--surface2); text-align:center; white-space:nowrap; }
+  .ev-grid-table th.ev-th-q { text-align:left; min-width:180px; }
+  .ev-grid-table td { font-size:12px; padding:7px 12px; border:1px solid var(--border); text-align:center; background:var(--surface); }
+  .ev-grid-table td.ev-td-q { text-align:left; color:var(--muted); font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ev-cell-empty { color:var(--divider); }
+  .ev-cell-running { color:var(--amber); animation:live-blink 1.4s ease-in-out infinite; }
+  .ev-cell-err { color:var(--red); font-size:10px; }
+  .ev-cell-score { font-weight:700; }
+  .ev-cell-score.high { color:var(--green); }
+  .ev-cell-score.mid  { color:var(--amber); }
+  .ev-cell-score.low  { color:var(--red); }
+
+  /* Single mode progress list */
+  .ev-single-list { display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+  .ev-single-row { border:1px solid var(--border); padding:12px 16px; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-sm); }
+  .ev-single-row-hdr { display:flex; align-items:center; gap:8px; margin-bottom:0; }
+  .ev-single-row.has-scores .ev-single-row-hdr { margin-bottom:8px; }
+  .ev-single-qnum { font-size:12px; font-weight:700; color:var(--pine); flex-shrink:0; }
+  .ev-single-qtxt { font-size:13px; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ev-single-status { font-size:11px; color:var(--muted); flex-shrink:0; }
+  .ev-single-answer { font-size:13px; color:#555; margin-top:10px; line-height:1.6; border-top:1px solid var(--border); padding-top:10px; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; cursor:pointer; }
+  .ev-single-answer.expanded { -webkit-line-clamp:unset; }
+  .ev-score-chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .ev-score-chip { font-size:11px; font-weight:500; padding:3px 10px; border:1px solid; border-radius:20px; }
+  .ev-score-chip.cr  { color:var(--pine);  border-color:var(--pine-glow); background:var(--pine-dim); }
+  .ev-score-chip.fa  { color:#7C3AED;      border-color:rgba(124,58,237,.25); background:rgba(124,58,237,.07); }
+  .ev-score-chip.ac  { color:var(--amber); border-color:rgba(221,129,93,.3); background:var(--amber-dim); }
+  .ev-score-chip.cx  { color:var(--text);  border-color:var(--border); background:var(--surface2); font-weight:700; }
+
+  /* Scoreboard */
+  .ev-scoreboard { margin-top:20px; }
+  .ev-scoreboard-table { width:100%; border-collapse:collapse; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); }
+  .ev-scoreboard-table th { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; padding:10px 14px; border:1px solid var(--border); background:var(--surface2); }
+  .ev-scoreboard-table td { font-size:12px; padding:10px 14px; border:1px solid var(--border); background:var(--surface); }
+  .ev-scoreboard-table tr.winner td { background:rgba(0,43,255,.04); }
+  .ev-winner-badge { display:inline-block; background:var(--pine); color:#fff; font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px; margin-left:6px; vertical-align:middle; }
+  .ev-recommendation { border:1px solid var(--pine-glow); background:var(--pine-dim); padding:16px 20px; margin-top:14px; border-radius:var(--radius); }
+  .ev-rec-title { font-size:11px; font-weight:600; color:var(--pine); letter-spacing:.04em; text-transform:uppercase; margin-bottom:8px; }
+  .ev-rec-body { font-size:13px; color:var(--text); line-height:1.7; }
+
+  /* ── Research papers ── */
+  .papers-section { margin-bottom:24px; border-top:1px solid var(--border); padding-top:20px; }
+  .papers-title { font-size:11px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:12px; }
+  .papers-grid { display:flex; flex-direction:column; gap:6px; }
+  .paper-item { display:flex; align-items:baseline; gap:10px; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); font-size:12px; }
+  .paper-tag { font-size:10px; font-weight:600; color:var(--pine); background:var(--pine-dim); border:1px solid var(--pine-glow); padding:2px 8px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+  .paper-title { color:var(--text); font-weight:500; flex:1; }
+  .paper-authors { color:var(--muted); font-size:11px; white-space:nowrap; flex-shrink:0; }
+  .paper-link { color:var(--pine); text-decoration:none; font-size:11px; flex-shrink:0; }
+  .paper-link:hover { text-decoration:underline; }
+
+  ::-webkit-scrollbar { width:5px; }
   ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:var(--border); }
+  ::-webkit-scrollbar-thumb { background:var(--divider); border-radius:4px; }
 </style>
 </head>
 <body>
@@ -458,10 +567,14 @@
 
   <!-- Header -->
   <header>
-    <div class="logo-mark"></div>
+    <div class="logo-mark">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" fill="#002BFF"/>
+        <path d="M16 8L22 11.5V18.5L16 22L10 18.5V11.5L16 8Z" fill="white"/>
+      </svg>
+    </div>
     <div class="header-text">
-      <h1>Pinecone Knowledge Layer</h1>
-      <p>live retrieval · real index · rag pipeline</p>
+      <h1>Pinecone Demo</h1>
     </div>
     <div class="live-badge"><div class="live-dot"></div>Live</div>
   </header>
@@ -479,7 +592,7 @@
 
   <!-- Hero -->
   <div class="hero">
-    <h2>Query your real<br><span>Pinecone index</span></h2>
+    <h2>Pinecone <span>Knowledge</span></h2>
     <p>Two modes: <strong style="color:var(--pine)">RAG Pipeline</strong> — embed → ANN search → Claude synthesis. <strong style="color:var(--pine)">Pinecone Assistant</strong> — fully managed RAG with native citations, no extra keys needed.</p>
   </div>
 
@@ -488,6 +601,7 @@
     <button class="mode-tab active" id="tab-rag" onclick="switchMode('rag')">⛓ RAG Pipeline</button>
     <button class="mode-tab" id="tab-assistant" onclick="switchMode('assistant')">🤖 Pinecone Assistant</button>
     <button class="mode-tab" id="tab-explorer" onclick="switchMode('explorer')">🔬 Retrieval Explorer</button>
+    <button class="mode-tab" id="tab-eval" onclick="switchMode('eval')">📊 Retrieval Eval</button>
   </div>
 
   <!-- Architecture (RAG) -->
@@ -889,6 +1003,49 @@
 
     <button class="ex-run-btn" id="ex-run-bottom" onclick="runExplorer()">Run Pipeline →</button>
 
+    <!-- Research papers -->
+    <div class="papers-section">
+      <div class="papers-title">Research behind this tab</div>
+      <div class="papers-grid">
+        <div class="paper-item">
+          <span class="paper-tag">HyDE</span>
+          <span class="paper-title">Precise Zero-Shot Dense Retrieval without Relevance Labels</span>
+          <span class="paper-authors">Gao et al., 2022</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2212.10496" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">Step-Back</span>
+          <span class="paper-title">Take a Step Back: Evoking Reasoning via Abstraction in Large Language Models</span>
+          <span class="paper-authors">Zheng et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2310.06117" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">RRF</span>
+          <span class="paper-title">Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods</span>
+          <span class="paper-authors">Cormack et al., 2009</span>
+          <a class="paper-link" href="https://dl.acm.org/doi/10.1145/1571941.1572114" target="_blank">ACM →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">Late Chunking</span>
+          <span class="paper-title">Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models</span>
+          <span class="paper-authors">Günther et al., 2024</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2409.04701" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">Lost in the Middle</span>
+          <span class="paper-title">Lost in the Middle: How Language Models Use Long Contexts</span>
+          <span class="paper-authors">Liu et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2307.03172" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">BGE Reranker</span>
+          <span class="paper-title">C-Pack: Packaged Resources To Advance General Chinese Embedding</span>
+          <span class="paper-authors">Xiao et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2309.07597" target="_blank">arXiv →</a>
+        </div>
+      </div>
+    </div>
+
     <!-- Results -->
     <div id="ex-results">
       <div class="ex-results-empty">
@@ -899,9 +1056,261 @@
 
   </div>
 
+  <!-- Retrieval Eval -->
+  <div id="eval-panel" style="display:none">
+
+    <!-- Mode toggle -->
+    <div class="ev-mode-toggle">
+      <button class="ev-mode-btn active" id="ev-btn-single" onclick="setEvalMode('single')">Single Config</button>
+      <button class="ev-mode-btn" id="ev-btn-optimize" onclick="setEvalMode('optimize')">&#x2728; Optimize Mode</button>
+    </div>
+
+    <!-- Single config panel -->
+    <div id="ev-single-config">
+      <div class="ev-mini-config">
+        <div class="ev-mini-title">Pipeline Configuration</div>
+        <div class="ev-mini-row">
+          <span class="ev-mini-lbl">Query transform</span>
+          <div class="ex-btn-group" id="ev-transform-group">
+            <button class="ex-btn-opt active" data-val="none"        onclick="selectBtnGroup(this)">None</button>
+            <button class="ex-btn-opt"        data-val="hyde"        onclick="selectBtnGroup(this)">HyDE</button>
+            <button class="ex-btn-opt"        data-val="multi_query" onclick="selectBtnGroup(this)">Multi-Query</button>
+            <button class="ex-btn-opt"        data-val="step_back"   onclick="selectBtnGroup(this)">Step-Back</button>
+          </div>
+        </div>
+        <div class="ev-mini-row">
+          <span class="ev-mini-lbl">Candidate pool (K)</span>
+          <div class="ex-btn-group" id="ev-topk-group">
+            <button class="ex-btn-opt"        data-val="3"  onclick="selectBtnGroup(this)">3</button>
+            <button class="ex-btn-opt active" data-val="5"  onclick="selectBtnGroup(this)">5</button>
+            <button class="ex-btn-opt"        data-val="10" onclick="selectBtnGroup(this)">10</button>
+            <button class="ex-btn-opt"        data-val="20" onclick="selectBtnGroup(this)">20</button>
+          </div>
+        </div>
+        <div class="ev-mini-row">
+          <span class="ev-mini-lbl">Reranker</span>
+          <div class="ex-btn-group" id="ev-reranker-group">
+            <button class="ex-btn-opt active" data-val="none"     onclick="selectBtnGroup(this)">None</button>
+            <button class="ex-btn-opt"        data-val="pinecone" onclick="selectBtnGroup(this)">Pinecone</button>
+            <button class="ex-btn-opt"        data-val="cohere"   onclick="selectBtnGroup(this)" id="ev-cohere-btn">Cohere</button>
+          </div>
+        </div>
+        <div class="ev-mini-row">
+          <span class="ev-mini-lbl">Chunks to include</span>
+          <div class="ex-btn-group" id="ev-numchunks-group">
+            <button class="ex-btn-opt"        data-val="1" onclick="selectBtnGroup(this)">1</button>
+            <button class="ex-btn-opt"        data-val="2" onclick="selectBtnGroup(this)">2</button>
+            <button class="ex-btn-opt active" data-val="3" onclick="selectBtnGroup(this)">3</button>
+            <button class="ex-btn-opt"        data-val="5" onclick="selectBtnGroup(this)">5</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optimize mode preset cards -->
+    <div id="ev-optimize-info" style="display:none">
+      <div class="section-label" style="margin-bottom:12px">5 Preset Configurations</div>
+      <div class="ev-preset-grid">
+        <div class="ev-preset-card">
+          <div class="ev-preset-id">C1</div>
+          <div class="ev-preset-label">Baseline</div>
+          <div class="ev-preset-desc">No transform &middot; K=5 &middot; No rerank &middot; 3 chunks</div>
+        </div>
+        <div class="ev-preset-card">
+          <div class="ev-preset-id">C2</div>
+          <div class="ev-preset-label">Pool + Rerank</div>
+          <div class="ev-preset-desc">No transform &middot; K=10 &middot; Pinecone rerank &middot; 3 chunks</div>
+        </div>
+        <div class="ev-preset-card">
+          <div class="ev-preset-id">C3</div>
+          <div class="ev-preset-label">HyDE + Rerank</div>
+          <div class="ev-preset-desc">HyDE &middot; K=10 &middot; Pinecone rerank &middot; 3 chunks</div>
+        </div>
+        <div class="ev-preset-card">
+          <div class="ev-preset-id">C4</div>
+          <div class="ev-preset-label">Multi-Query</div>
+          <div class="ev-preset-desc">Multi-query/3 &middot; K=10 &middot; Pinecone rerank &middot; 5 chunks</div>
+        </div>
+        <div class="ev-preset-card">
+          <div class="ev-preset-id">C5</div>
+          <div class="ev-preset-label">Step-Back</div>
+          <div class="ev-preset-desc">Step-back &middot; K=5 &middot; No rerank &middot; 3 chunks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics explainer -->
+    <div class="ev-metrics-explainer" id="ev-metrics-explainer">
+      <div class="ev-dataset-label">Evaluation Approach</div>
+      <div class="ev-approach-note">
+        Two evaluation layers run together on each question:<br>
+        <strong style="color:var(--pine)">LLM-as-judge</strong> (Claude Sonnet) scores 4 quality dimensions (0&ndash;10). Reference answers provided for Answer Correctness.<br>
+        <strong style="color:var(--pine)">Deterministic retrieval metrics</strong> (Hit&nbsp;Rate@1/3/5, MRR) computed by matching retrieved chunk sources against ground-truth document URLs confirmed from the live index.
+      </div>
+      <div class="ev-metric-grid">
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip cr">CR</span>
+            <span class="ev-metric-name">Context Relevance</span>
+            <span class="ev-metric-weight">weight 20%</span>
+            <span class="ev-metric-tag ref-free">reference-free</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Are the retrieved chunks relevant to the question? Judges <em>retrieval quality</em> without needing ground-truth document IDs.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">1&ndash;3 &mdash; Chunks are off-topic or only about unrelated Pinecone features</div>
+              <div class="ev-ex mid">4&ndash;6 &mdash; Chunks are about Pinecone but tangentially related to the question</div>
+              <div class="ev-ex high">7&ndash;10 &mdash; Chunks directly and completely address the question</div>
+            </div>
+            <div class="ev-metric-note">Ground-truth source URLs are defined for all 10 questions. Hit Rate@1/3/5 and MRR are computed deterministically from chunk metadata &mdash; no LLM call needed.</div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip fa">F</span>
+            <span class="ev-metric-name">Faithfulness</span>
+            <span class="ev-metric-weight">weight 35%</span>
+            <span class="ev-metric-tag ref-free">reference-free</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Does the answer stay grounded in the retrieved context without hallucinating? Each unsupported claim reduces the score.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">1&ndash;3 &mdash; Answer introduces multiple facts absent from the retrieved chunks</div>
+              <div class="ev-ex mid">4&ndash;6 &mdash; Answer mostly uses context but adds some unsupported claims</div>
+              <div class="ev-ex high">7&ndash;10 &mdash; Every claim in the answer is directly supported by a retrieved chunk</div>
+            </div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip ac">AC</span>
+            <span class="ev-metric-name">Answer Correctness</span>
+            <span class="ev-metric-weight">weight 30%</span>
+            <span class="ev-metric-tag ref-based">reference-based &#x2713;</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>How correct and complete is the answer compared to the <strong>reference answer</strong>? The judge compares key facts, not exact wording.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">1&ndash;3 &mdash; Answer misses most key facts from the reference or contradicts them</div>
+              <div class="ev-ex mid">4&ndash;6 &mdash; Answer captures some key facts but omits important details</div>
+              <div class="ev-ex high">7&ndash;10 &mdash; Answer captures all key facts from the reference answer</div>
+            </div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip ar">AR</span>
+            <span class="ev-metric-name">Answer Relevance</span>
+            <span class="ev-metric-weight">weight 15%</span>
+            <span class="ev-metric-tag ref-free">reference-free</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Does the generated answer actually address the question asked? Catches on-topic answers that still miss the point.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">1&ndash;3 &mdash; Answer addresses a different question or refuses to answer</div>
+              <div class="ev-ex mid">4&ndash;6 &mdash; Answer partially addresses the question but with significant drift</div>
+              <div class="ev-ex high">7&ndash;10 &mdash; Answer directly and fully addresses what was asked</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ev-metric-grid" style="margin-top:8px">
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip hr">Hit@K</span>
+            <span class="ev-metric-name">Hit Rate @ 1 / 3 / 5</span>
+            <span class="ev-metric-weight">deterministic</span>
+            <span class="ev-metric-tag ref-based">ground-truth docs &#x2713;</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Did the correct source document appear in the top K retrieved chunks? Computed by matching <code>chunk.metadata.source</code> against the expected URL(s) defined for each question.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">Miss &mdash; No retrieved chunk came from the expected document</div>
+              <div class="ev-ex high">Hit &mdash; At least one chunk from the expected document was retrieved</div>
+            </div>
+            <div class="ev-metric-note">Expected sources confirmed by querying the live index for all 10 question topics.</div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip hr">MRR</span>
+            <span class="ev-metric-name">Mean Reciprocal Rank</span>
+            <span class="ev-metric-weight">deterministic</span>
+            <span class="ev-metric-tag ref-based">ground-truth docs &#x2713;</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Measures how high the first relevant chunk ranks. MRR = 1 / rank_of_first_hit (e.g., hit at rank 1 = 1.0, rank 2 = 0.5, rank 3 = 0.33). MRR = 0 if no relevant chunk is retrieved.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">MRR 0.0 &mdash; Correct document not retrieved at all</div>
+              <div class="ev-ex mid">MRR 0.33&ndash;0.5 &mdash; Correct document retrieved at rank 3 or 2</div>
+              <div class="ev-ex high">MRR 1.0 &mdash; Correct document is the top result</div>
+            </div>
+            <div class="ev-metric-note">Not normalized (no NDCG): this index has too few total documents for NDCG to be meaningful.</div>
+          </div>
+        </div>
+      </div>
+      <div class="ev-composite-formula">
+        LLM composite = CR &times; 0.20 + F &times; 0.35 + AC &times; 0.30 + AR &times; 0.15 &nbsp;&nbsp;|&nbsp;&nbsp; Retrieval: Hit@1 / Hit@3 / Hit@5 / MRR (separate)
+      </div>
+    </div>
+
+    <!-- Dataset with reference answers (populated from server) -->
+    <div class="ev-dataset-section">
+      <div class="ev-dataset-label">Evaluation Dataset &mdash; 10 questions with reference answers</div>
+      <div class="ev-q-list" id="ev-q-list">
+        <!-- populated by initEvalDataset() -->
+      </div>
+    </div>
+
+    <button class="ex-run-btn" id="ev-run-btn" onclick="runEval()">Run Evaluation &#x2192;</button>
+
+    <!-- Live progress + results -->
+    <div id="ev-output"></div>
+
+    <!-- Research papers -->
+    <div class="papers-section" style="margin-top:32px">
+      <div class="papers-title">Research behind this tab</div>
+      <div class="papers-grid">
+        <div class="paper-item">
+          <span class="paper-tag">LLM-as-Judge</span>
+          <span class="paper-title">Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</span>
+          <span class="paper-authors">Zheng et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2306.05685" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">RAGAS</span>
+          <span class="paper-title">RAGAS: Automated Evaluation of Retrieval Augmented Generation</span>
+          <span class="paper-authors">Es et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2309.15217" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">ARES</span>
+          <span class="paper-title">ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems</span>
+          <span class="paper-authors">Saad-Falcon et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2311.09476" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">Faithfulness</span>
+          <span class="paper-title">Evaluating Correctness and Faithfulness of Instruction-Following Models for Question Answering</span>
+          <span class="paper-authors">Adlakha et al., 2023</span>
+          <a class="paper-link" href="https://arxiv.org/abs/2307.16877" target="_blank">arXiv →</a>
+        </div>
+        <div class="paper-item">
+          <span class="paper-tag">MRR / Hit@K</span>
+          <span class="paper-title">Introduction to Information Retrieval (MRR, Precision@K)</span>
+          <span class="paper-authors">Manning, Raghavan &amp; Schütze, 2008</span>
+          <a class="paper-link" href="https://nlp.stanford.edu/IR-book/" target="_blank">Book →</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
   <div class="footnote">
     <span>Pinecone</span> serverless · <span>OpenAI</span> text-embedding-3-small · <span>Claude</span> Sonnet 4 · <span>Pinecone Assistant</span> managed RAG<br>
-    Built for Staff PM, Knowledge interview · <span>pinecone.io/careers</span>
+    Built by Richard Sheng ·
+    <a href="https://www.linkedin.com/in/richardsheng" target="_blank" style="color:var(--pine);text-decoration:none;">LinkedIn</a> ·
+    <a href="https://github.com/rcsheng" target="_blank" style="color:var(--pine);text-decoration:none;">GitHub</a>
   </div>
 </div>
 
@@ -927,6 +1336,7 @@ async function initApp() {
   setPill('pill-claude',    'Claude',    cfg.ragReady);
   setPill('pill-rag',       'RAG ready', cfg.ragReady);
   initExplorer();
+  initEvalDataset();
 
   // Disable RAG tab if dependencies are missing
   if (!cfg.ragReady) {
@@ -967,18 +1377,20 @@ function switchMode(mode) {
   document.getElementById('tab-rag').classList.toggle('active', mode === 'rag');
   document.getElementById('tab-assistant').classList.toggle('active', mode === 'assistant');
   document.getElementById('tab-explorer').classList.toggle('active', mode === 'explorer');
+  document.getElementById('tab-eval').classList.toggle('active', mode === 'eval');
 
-  const isExplorer = mode === 'explorer';
+  const hideMain = mode === 'explorer' || mode === 'eval';
 
   document.getElementById('arch-rag').style.display       = mode === 'rag'       ? '' : 'none';
   document.getElementById('arch-assistant').style.display = mode === 'assistant' ? '' : 'none';
 
-  document.getElementById('metrics-bar').style.display    = isExplorer ? 'none' : '';
-  document.getElementById('query-section').style.display  = isExplorer ? 'none' : '';
-  document.getElementById('results-label').style.display  = isExplorer ? 'none' : '';
-  document.getElementById('results-grid').style.display   = isExplorer ? 'none' : '';
-  document.getElementById('sources-bar').style.display    = isExplorer ? 'none' : '';
-  document.getElementById('explorer-panel').style.display = isExplorer ? ''     : 'none';
+  document.getElementById('metrics-bar').style.display    = hideMain ? 'none' : '';
+  document.getElementById('query-section').style.display  = hideMain ? 'none' : '';
+  document.getElementById('results-label').style.display  = hideMain ? 'none' : '';
+  document.getElementById('results-grid').style.display   = hideMain ? 'none' : '';
+  document.getElementById('sources-bar').style.display    = hideMain ? 'none' : '';
+  document.getElementById('explorer-panel').style.display = mode === 'explorer' ? '' : 'none';
+  document.getElementById('eval-panel').style.display     = mode === 'eval'     ? '' : 'none';
 
   document.getElementById('rag-opts').style.display            = mode === 'rag'       ? '' : 'none';
   document.getElementById('hint-chips-rag').style.display      = mode === 'rag'       ? '' : 'none';
@@ -987,12 +1399,6 @@ function switchMode(mode) {
   document.getElementById('left-panel-label').textContent =
     mode === 'rag' ? 'Pinecone Retrieval' : 'Source Citations';
 
-  // Reset panels
-  if (!isExplorer) {
-    document.getElementById('chunks-panel').innerHTML = `<div class="empty"><div class="e-icon">🌲</div><p>Awaiting query...</p></div>`;
-    document.getElementById('answer-panel').innerHTML = `<div class="empty"><div class="e-icon">💬</div><p>Answer streams here...</p></div>`;
-    document.getElementById('sources-bar').classList.remove('visible');
-  }
   clearError();
 }
 
@@ -1337,7 +1743,7 @@ document.getElementById('ex-query').addEventListener('keydown', e => {
 function initExplorer() {
   const msg = 'Add COHERE_API_KEY to .env to enable';
   if (!cfg.cohereReady) {
-    ['ex-cohere-btn','ex-b-cohere-btn'].forEach(id => {
+    ['ex-cohere-btn','ex-b-cohere-btn','ev-cohere-btn'].forEach(id => {
       const b = document.getElementById(id);
       if (b) { b.disabled = true; b.title = msg; }
     });
@@ -1636,19 +2042,386 @@ function buildResultsHTML(payload, data) {
 
   return traceHtml + chunksSectionHtml + answerHtml + rawHtml;
 }
+
+</script>
+
+<script>
+// ─── Retrieval Eval ─────────────────────────────────────────────────────────────────────
+
+let evalMode = 'single';
+let evalRunning = false;
+
+var PRESETS = [
+  { id: 'C1', label: 'Baseline',      desc: 'No transform \u00b7 K=5 \u00b7 No rerank \u00b7 3 chunks' },
+  { id: 'C2', label: 'Pool + Rerank', desc: 'No transform \u00b7 K=10 \u00b7 Pinecone rerank \u00b7 3 chunks' },
+  { id: 'C3', label: 'HyDE + Rerank', desc: 'HyDE \u00b7 K=10 \u00b7 Pinecone rerank \u00b7 3 chunks' },
+  { id: 'C4', label: 'Multi-Query',   desc: 'Multi-query/3 \u00b7 K=10 \u00b7 Pinecone rerank \u00b7 5 chunks' },
+  { id: 'C5', label: 'Step-Back',     desc: 'Step-back \u00b7 K=5 \u00b7 No rerank \u00b7 3 chunks' },
+];
+
+// Populated from cfg.evalDataset after init
+var EVAL_QUESTIONS = [];
+var EVAL_REFERENCES = [];
+
+function initEvalDataset() {
+  var ds = cfg.evalDataset || [];
+  EVAL_QUESTIONS = ds.map(function(d){ return d.question; });
+  EVAL_REFERENCES = ds.map(function(d){ return d.reference || ''; });
+
+  var list = document.getElementById('ev-q-list');
+  if (!list) return;
+  list.innerHTML = ds.map(function(d) {
+    return '<div class="ev-q-item">' +
+      '<div class="ev-q-item-hdr" onclick="toggleEvalQ(this)">' +
+        '<span class="ev-q-num">Q' + d.id + '</span>' +
+        '<span class="ev-q-txt">' + escapeHtml(d.question) + '</span>' +
+        '<span class="ev-q-chevron">\u25bc</span>' +
+      '</div>' +
+      '<div class="ev-q-ref">' +
+        '<div class="ev-q-ref-label">Reference answer (used for Answer Correctness)</div>' +
+        escapeHtml(d.reference || '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function toggleAnswer(el) { el.classList.toggle('expanded'); }
+
+function toggleEvalQ(hdr) {
+  var ref = hdr.nextElementSibling;
+  var chev = hdr.querySelector('.ev-q-chevron');
+  var open = ref.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
+}
+
+function setEvalMode(mode) {
+  evalMode = mode;
+  document.getElementById('ev-btn-single').classList.toggle('active', mode === 'single');
+  document.getElementById('ev-btn-optimize').classList.toggle('active', mode === 'optimize');
+  document.getElementById('ev-single-config').style.display  = mode === 'single'   ? '' : 'none';
+  document.getElementById('ev-optimize-info').style.display  = mode === 'optimize' ? '' : 'none';
+}
+
+function getEvalConfig() {
+  var transform = document.querySelector('#ev-transform-group .ex-btn-opt.active')?.dataset.val || 'none';
+  var topK      = parseInt(document.querySelector('#ev-topk-group .ex-btn-opt.active')?.dataset.val || '5');
+  var reranker  = document.querySelector('#ev-reranker-group .ex-btn-opt.active')?.dataset.val || 'none';
+  var numChunks = parseInt(document.querySelector('#ev-numchunks-group .ex-btn-opt.active')?.dataset.val || '3');
+  return {
+    chunking:        { strategy: 'fixed', namespace: null },
+    query_transform: { type: transform, num_variants: 3 },
+    index:           { top_k: topK, namespace_filter: null, include_metadata: true },
+    retrieval:       { mode: 'dense', fusion: 'rrf', alpha: 0.7 },
+    reranking:       { model: reranker, top_n: numChunks },
+    context:         { num_chunks: numChunks, ordering: 'as_retrieved', compression: 'none', deduplicate: false },
+  };
+}
+
+// Composite: CR*0.20 + F*0.35 + AC*0.30 + AR*0.15
+function composite(s) {
+  return ((+s.context_relevance || 0) * 0.20) + ((+s.faithfulness || 0) * 0.35) +
+         ((+s.answer_correctness || 0) * 0.30) + ((+s.answer_relevance || 0) * 0.15);
+}
+
+function scoreClass(v) { return v >= 7 ? 'high' : v >= 4 ? 'mid' : 'low'; }
+
+function scoreChips(s, r) {
+  var cx = composite(s);
+  var retHtml = '';
+  if (r) {
+    var rankTxt = r.first_hit_rank ? '#' + r.first_hit_rank : 'miss';
+    var hitCls  = r.hit_at_5 ? 'hr' : 'miss';
+    retHtml = '<span class="ev-score-chip ' + hitCls + '" title="Hit@5: ' + (r.hit_at_5 ? 'YES' : 'NO') + ' | First hit rank: ' + (r.first_hit_rank || 'none') + ' | MRR: ' + r.mrr.toFixed(2) + '">' +
+      (r.hit_at_5 ? '\u2713' : '\u2717') + ' ' + rankTxt + '</span>';
+  }
+  return '<div class="ev-score-chips">' + retHtml +
+    '<span class="ev-score-chip cr" title="Context Relevance (ref-free)">CR ' + (+s.context_relevance || 0).toFixed(1) + '</span>' +
+    '<span class="ev-score-chip fa" title="Faithfulness (ref-free)">F ' + (+s.faithfulness || 0).toFixed(1) + '</span>' +
+    '<span class="ev-score-chip ac" title="Answer Correctness (vs reference answer)">AC ' + (+s.answer_correctness || 0).toFixed(1) + '</span>' +
+    '<span class="ev-score-chip ar" title="Answer Relevance (ref-free)">AR ' + (+s.answer_relevance || 0).toFixed(1) + '</span>' +
+    '<span class="ev-score-chip cx ' + scoreClass(cx) + '" title="Composite (CR\u00d70.20 + F\u00d70.35 + AC\u00d70.30 + AR\u00d70.15)">' + cx.toFixed(1) + '</span>' +
+  '</div>';
+}
+
+// Single mode ─────────────────────────────────────────────────────────────────
+
+function initSingleProgress() {
+  var rows = EVAL_QUESTIONS.map(function(q, i) {
+    return '<div class="ev-single-row" id="ev-row-' + (i+1) + '">' +
+      '<div class="ev-single-row-hdr">' +
+        '<span class="ev-single-qnum">Q' + (i+1) + '</span>' +
+        '<span class="ev-single-qtxt">' + escapeHtml(q) + '</span>' +
+        '<span class="ev-single-status" id="ev-st-' + (i+1) + '">waiting</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('ev-output').innerHTML =
+    '<div class="ev-progress-section"><div class="ev-progress-lbl">Scoring 10 questions\u2026</div>' +
+    '<div class="ev-single-list">' + rows + '</div></div>';
+}
+
+function updateSingleRow(id, data) {
+  var row = document.getElementById('ev-row-' + id);
+  if (!row) return;
+  if (data.error) {
+    row.classList.add('has-scores');
+    row.innerHTML =
+      '<div class="ev-single-row-hdr">' +
+        '<span class="ev-single-qnum">Q' + id + '</span>' +
+        '<span class="ev-single-qtxt">' + escapeHtml(EVAL_QUESTIONS[id-1] || '') + '</span>' +
+        '<span class="ev-single-status" style="color:var(--red)">error: ' + escapeHtml(String(data.error)) + '</span>' +
+      '</div>';
+    return;
+  }
+  try {
+    var chips = scoreChips(data.scores, data.retrieval);
+    row.classList.add('has-scores');
+    row.innerHTML =
+      '<div class="ev-single-row-hdr">' +
+        '<span class="ev-single-qnum">Q' + id + '</span>' +
+        '<span class="ev-single-qtxt">' + escapeHtml(EVAL_QUESTIONS[id-1] || '') + '</span>' +
+      '</div>' +
+      chips +
+      '<div class="ev-single-answer" onclick="toggleAnswer(this)" title="Click to expand"><strong>Answer:</strong> ' + escapeHtml(data.answer || '') + '</div>';
+  } catch(e) {
+    row.classList.add('has-scores');
+    row.innerHTML =
+      '<div class="ev-single-row-hdr">' +
+        '<span class="ev-single-qnum">Q' + id + '</span>' +
+        '<span class="ev-single-qtxt">' + escapeHtml(EVAL_QUESTIONS[id-1] || '') + '</span>' +
+        '<span class="ev-single-status" style="color:var(--red)">render error</span>' +
+      '</div>';
+    console.error('updateSingleRow Q' + id, e);
+  }
+}
+
+function finalizeSingle(results) {
+  if (!results.length) return;
+  var n = results.length;
+  var avgCR = results.reduce(function(a,r){ return a+(+r.scores.context_relevance||0); }, 0) / n;
+  var avgF  = results.reduce(function(a,r){ return a+(+r.scores.faithfulness||0); }, 0) / n;
+  var avgAC = results.reduce(function(a,r){ return a+(+r.scores.answer_correctness||0); }, 0) / n;
+  var avgAR = results.reduce(function(a,r){ return a+(+r.scores.answer_relevance||0); }, 0) / n;
+  var avgCX = results.reduce(function(a,r){ return a+composite(r.scores); }, 0) / n;
+
+  var withRet = results.filter(function(r){ return r.retrieval; });
+  var hit1  = withRet.length ? withRet.filter(function(r){ return r.retrieval.hit_at_1; }).length / withRet.length : null;
+  var hit3  = withRet.length ? withRet.filter(function(r){ return r.retrieval.hit_at_3; }).length / withRet.length : null;
+  var hit5  = withRet.length ? withRet.filter(function(r){ return r.retrieval.hit_at_5; }).length / withRet.length : null;
+  var mrr   = withRet.length ? withRet.reduce(function(a,r){ return a+r.retrieval.mrr; }, 0) / withRet.length : null;
+
+  function pct(v) { return v !== null ? (v * 100).toFixed(0) + '%' : '\u2014'; }
+
+  var summaryHtml =
+    '<div class="ev-recommendation" style="margin-top:16px">' +
+      '<div class="ev-rec-title">Summary \u2014 averages across ' + n + ' questions</div>' +
+      '<table class="ev-summary-table">' +
+        '<tr><td class="ev-sum-lbl" colspan="2" style="color:var(--pine);padding-top:10px">LLM-as-Judge Metrics (0\u201310)</td></tr>' +
+        '<tr><td class="ev-sum-lbl">Context Relevance (CR) &mdash; reference-free</td><td class="ev-sum-val"><strong style="color:var(--pine)">' + avgCR.toFixed(1) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Faithfulness (F) &mdash; reference-free</td><td class="ev-sum-val"><strong style="color:#8b9fff">' + avgF.toFixed(1) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Answer Correctness (AC) &mdash; vs reference answer</td><td class="ev-sum-val"><strong style="color:var(--amber)">' + avgAC.toFixed(1) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Answer Relevance (AR) &mdash; reference-free</td><td class="ev-sum-val"><strong style="color:#c084fc">' + avgAR.toFixed(1) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl"><strong>Composite (CR\u00d70.20 + F\u00d70.35 + AC\u00d70.30 + AR\u00d70.15)</strong></td><td class="ev-sum-val"><strong style="color:var(--pine);font-size:13px">' + avgCX.toFixed(1) + ' / 10</strong></td></tr>' +
+        (withRet.length ? (
+        '<tr><td class="ev-sum-lbl" colspan="2" style="color:#38bdf8;padding-top:10px">Retrieval Metrics (deterministic, ground-truth docs)</td></tr>' +
+        '<tr><td class="ev-sum-lbl">Hit Rate@1 &mdash; correct doc is top result</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit1) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Hit Rate@3</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit3) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Hit Rate@5</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit5) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">MRR (Mean Reciprocal Rank)</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + (mrr !== null ? mrr.toFixed(3) : '\u2014') + '</strong></td></tr>'
+        ) : '') +
+      '</table>' +
+    '</div>';
+
+  document.getElementById('ev-output').insertAdjacentHTML('beforeend', summaryHtml);
+}
+
+// Optimize mode ───────────────────────────────────────────────────────────────
+
+function initOptimizeProgress() {
+  var hdr = '<tr><th class="ev-th-q">Question</th>' +
+    PRESETS.map(function(p){ return '<th>' + p.id + '<br>' + escapeHtml(p.label) + '</th>'; }).join('') + '</tr>';
+  var body = EVAL_QUESTIONS.map(function(q, i) {
+    var qId = i + 1;
+    return '<tr><td class="ev-td-q">Q' + qId + ' ' + escapeHtml(q.slice(0,45)) + (q.length>45?'\u2026':'') + '</td>' +
+      PRESETS.map(function(p){ return '<td id="ev-cell-' + p.id + '-' + qId + '" class="ev-cell-empty">\u00b7\u00b7\u00b7</td>'; }).join('') +
+    '</tr>';
+  }).join('');
+  document.getElementById('ev-output').innerHTML =
+    '<div class="ev-progress-section">' +
+      '<div class="ev-progress-lbl">Running 5 configs \u00d7 10 questions (composite score shown)</div>' +
+      '<div class="ev-grid-wrap"><table class="ev-grid-table"><thead>' + hdr + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<div id="ev-scoreboard-area"></div>' +
+    '</div>';
+}
+
+function setOptimizeCell(configId, questionId, data) {
+  var cell = document.getElementById('ev-cell-' + configId + '-' + questionId);
+  if (!cell) return;
+  if (data.error) { cell.className = 'ev-cell-err'; cell.textContent = 'err'; return; }
+  var cx = composite(data.scores);
+  cell.className = 'ev-cell-score ' + scoreClass(cx);
+  cell.textContent = cx.toFixed(1);
+}
+
+function renderScoreboard(scoreMap) {
+  var rows = PRESETS.map(function(p) {
+    var vals = scoreMap[p.id] || [];
+    if (!vals.length) return null;
+    var avg = vals.reduce(function(a,b){ return a+b; }, 0) / vals.length;
+    return { id: p.id, label: p.label, desc: p.desc, avg: avg };
+  }).filter(Boolean);
+  if (!rows.length) return;
+  rows.sort(function(a,b){ return b.avg - a.avg; });
+  var winner = rows[0];
+
+  // Build retrieval averages per config
+  var retMap = scoreMap._retrieval || {};
+
+  var tableHtml = '<table class="ev-scoreboard-table"><thead><tr>' +
+    '<th>Config</th><th>Description</th><th>Composite</th><th>CR</th><th>F</th><th>AC</th><th>AR</th>' +
+    '<th style="color:#38bdf8">Hit@5</th><th style="color:#38bdf8">MRR</th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(function(r) {
+    var raw = scoreMap[r.id + '_raw'] || [];
+    var ret = retMap[r.id] || [];
+    function avg(fn) { return raw.length ? (raw.reduce(function(a,b){ return a+fn(b); },0)/raw.length).toFixed(1) : '\u2014'; }
+    var avgHit5 = ret.length ? (ret.filter(function(x){ return x.hit_at_5; }).length / ret.length * 100).toFixed(0) + '%' : '\u2014';
+    var avgMRR  = ret.length ? (ret.reduce(function(a,x){ return a+x.mrr; },0)/ret.length).toFixed(3) : '\u2014';
+    var isWinner = r.id === winner.id;
+    tableHtml += '<tr' + (isWinner ? ' class="winner"' : '') + '>' +
+      '<td>' + r.id + (isWinner ? '<span class="ev-winner-badge">BEST</span>' : '') + '</td>' +
+      '<td style="font-size:9px">' + escapeHtml(r.desc) + '</td>' +
+      '<td><strong style="color:' + (isWinner ? 'var(--pine)' : 'var(--text)') + '">' + r.avg.toFixed(1) + '</strong></td>' +
+      '<td>' + avg(function(b){ return b.cr; }) + '</td>' +
+      '<td>' + avg(function(b){ return b.f; }) + '</td>' +
+      '<td>' + avg(function(b){ return b.ac; }) + '</td>' +
+      '<td>' + avg(function(b){ return b.ar; }) + '</td>' +
+      '<td style="color:#38bdf8">' + avgHit5 + '</td>' +
+      '<td style="color:#38bdf8">' + avgMRR + '</td>' +
+    '</tr>';
+  });
+  tableHtml += '</tbody></table>';
+
+  var recHtml =
+    '<div class="ev-recommendation">' +
+      '<div class="ev-rec-title">&#x2728; Recommendation</div>' +
+      '<div class="ev-rec-body"><strong style="color:var(--pine)">' + winner.id + ' \u2014 ' + escapeHtml(winner.label) + '</strong> scored highest composite: <strong>' + winner.avg.toFixed(1) + ' / 10</strong><br>' +
+      escapeHtml(winner.desc) + '</div>' +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:8px;line-height:1.6">' +
+      'AC is reference-based (vs written reference answers). CR, F, AR are reference-free LLM-as-judge.<br>' +
+      'Hit@5 and MRR are deterministic \u2014 computed from ground-truth source URLs confirmed from the live index.' +
+    '</div>';
+
+  document.getElementById('ev-scoreboard-area').innerHTML =
+    '<div class="ev-scoreboard" style="margin-top:20px"><div class="ev-progress-lbl">Final Scoreboard</div>' + tableHtml + recHtml + '</div>';
+}
+
+// Run ─────────────────────────────────────────────────────────────────────────
+
+async function runEval() {
+  if (evalRunning) return;
+  evalRunning = true;
+  document.getElementById('ev-run-btn').disabled = true;
+
+  var singleResults = [];
+  var optimizeScores = {};
+  PRESETS.forEach(function(p) { optimizeScores[p.id] = []; optimizeScores[p.id + '_raw'] = []; });
+
+  if (evalMode === 'single') { initSingleProgress(); }
+  else { initOptimizeProgress(); }
+
+  try {
+    var body = evalMode === 'single'
+      ? { mode: 'single', config: getEvalConfig() }
+      : { mode: 'optimize' };
+
+    var res = await fetch('/api/eval', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      var errData = await res.json().catch(function(){ return {}; });
+      throw new Error(errData.error || 'HTTP ' + res.status);
+    }
+
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = '';
+
+    while (true) {
+      var rChunk = await reader.read();
+      if (rChunk.done) break;
+      buf += decoder.decode(rChunk.value, { stream: true });
+      var lines = buf.split('\n');
+      buf = lines.pop();
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li].trim();
+        if (!line) continue;
+        var msg;
+        try { msg = JSON.parse(line); } catch(e) { continue; }
+
+        if (msg.type === 'result') {
+          if (evalMode === 'single') {
+            updateSingleRow(msg.questionId, msg);
+            singleResults.push(msg);
+          } else {
+            setOptimizeCell(msg.configId, msg.questionId, msg);
+            var cx = composite(msg.scores);
+            optimizeScores[msg.configId].push(cx);
+            optimizeScores[msg.configId + '_raw'].push({
+              cr: msg.scores.context_relevance, f: msg.scores.faithfulness,
+              ac: msg.scores.answer_correctness, ar: msg.scores.answer_relevance || 0,
+            });
+            if (msg.retrieval) {
+              if (!optimizeScores._retrieval) optimizeScores._retrieval = {};
+              if (!optimizeScores._retrieval[msg.configId]) optimizeScores._retrieval[msg.configId] = [];
+              optimizeScores._retrieval[msg.configId].push(msg.retrieval);
+            }
+          }
+        } else if (msg.type === 'error') {
+          if (evalMode === 'single') updateSingleRow(msg.questionId, msg);
+          else setOptimizeCell(msg.configId, msg.questionId, msg);
+        } else if (msg.type === 'done') {
+          if (evalMode === 'single') finalizeSingle(singleResults);
+          else renderScoreboard(optimizeScores);
+        } else if (msg.type === 'fatal') {
+          document.getElementById('ev-output').insertAdjacentHTML('beforeend',
+            '<div class="error-msg" style="margin-top:12px">&#x26A0; ' + escapeHtml(msg.error) + '</div>');
+        }
+      }
+    }
+  } catch(e) {
+    var msg = (e && e.message) ? e.message : String(e);
+    document.getElementById('ev-output').insertAdjacentHTML('beforeend',
+      '<div class="error-msg" style="margin-top:12px">&#x26A0; ' + escapeHtml(msg) + '</div>');
+    document.getElementById('ev-output').scrollIntoView({ behavior: 'smooth', block: 'end' });
+  } finally {
+    evalRunning = false;
+    document.getElementById('ev-run-btn').disabled = false;
+  }
+}
 </script>
 
 <script>
 // ─── Live reload (dev only) ───────────────────────────────────────────────────
 (function() {
+  let pendingReload = false;
+  function doReload() {
+    if (evalRunning) { pendingReload = true; return; }
+    location.reload();
+  }
   let reloadOnOpen = false;
   function connect() {
     const es = new EventSource('/api/livereload');
-    es.onmessage = () => location.reload();
-    es.onerror   = () => { reloadOnOpen = true; es.close(); setTimeout(connect, 1000); };
-    es.onopen    = () => { if (reloadOnOpen) location.reload(); };
+    es.onmessage = () => doReload();
+    es.onerror   = () => { reloadOnOpen = true; es.close(); setTimeout(connect, 2000); };
+    es.onopen    = () => { if (reloadOnOpen) { reloadOnOpen = false; doReload(); } };
   }
   connect();
+  // Apply queued reload once eval finishes
+  const _origFinalize = window._lrCheck = setInterval(() => {
+    if (pendingReload && !evalRunning) { clearInterval(_origFinalize); location.reload(); }
+  }, 2000);
 })();
 </script>
 </body>

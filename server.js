@@ -95,7 +95,9 @@ app.get('/api/livereload', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
   liveReloadClients.add(res);
-  req.on('close', () => liveReloadClients.delete(res));
+  // Heartbeat every 25s to prevent browser/proxy from closing the SSE connection
+  const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch(e) {} }, 25000);
+  req.on('close', () => { clearInterval(ping); liveReloadClients.delete(res); });
 });
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
@@ -115,6 +117,7 @@ app.get('/api/config', (_req, res) => {
     assistantReady:!!ASSISTANT_HOST,
     ragReady:      !!OPENAI_API_KEY && !!ANTHROPIC_API_KEY && !!PINECONE_API_KEY,
     cohereReady:   !!COHERE_API_KEY,
+    evalDataset:   EVAL_DATASET,
   });
 });
 
@@ -292,6 +295,192 @@ function parseLLMJsonArray(text) {
   try { return JSON.parse(match[0]); } catch { return []; }
 }
 
+// ─── Retrieval pipeline helper ───────────────────────────────────────────────
+
+function makeBaseConfig({ transform = 'none', topK = 5, reranker = 'none', numChunks = 3, numVariants = 3 } = {}) {
+  return {
+    chunking:        { strategy: 'fixed', namespace: null },
+    query_transform: { type: transform, num_variants: numVariants },
+    index:           { top_k: topK, namespace_filter: null, include_metadata: true },
+    retrieval:       { mode: 'dense', fusion: 'rrf', alpha: 0.7 },
+    reranking:       { model: reranker, top_n: numChunks },
+    context:         { num_chunks: numChunks, ordering: 'as_retrieved', compression: 'none', deduplicate: false },
+  };
+}
+
+async function runPipeline(query, config) {
+  const { index, query_transform, reranking, context } = config;
+  const ns = index.namespace_filter || null;
+
+  // ── 1. Query transformation ───────────────────────────────────────────────
+  let transformedQueries = [];
+  let multiQueries = null;
+  let retrievalQuery = query;
+
+  if (query_transform.type === 'hyde') {
+    const hypo = await llmCall(
+      `Write a 2\u20133 sentence technical answer to this question, as if from documentation:\n\n"${query}"\n\nAnswer only, no preamble.`,
+      300
+    );
+    transformedQueries = [hypo];
+    retrievalQuery = hypo;
+  } else if (query_transform.type === 'step_back') {
+    const abstract = await llmCall(
+      `Rephrase this question as a broader, more general version (one sentence only):\n\n"${query}"\n\nReturn only the rephrased question.`,
+      150
+    );
+    transformedQueries = [abstract];
+    retrievalQuery = abstract;
+  } else if (query_transform.type === 'multi_query') {
+    const n = query_transform.num_variants || 3;
+    const raw = await llmCall(
+      `Generate ${n} different phrasings of this question. Return a JSON array of strings only, no preamble:\n\n"${query}"`,
+      400
+    );
+    const variants = parseLLMJsonArray(raw).slice(0, n);
+    transformedQueries = variants.length ? variants : [query];
+    multiQueries = transformedQueries;
+  } else if (query_transform.type === 'decompose') {
+    const n = query_transform.num_variants || 3;
+    const raw = await llmCall(
+      `Break this question into ${n} simpler sub-questions. Return a JSON array of strings only, no preamble:\n\n"${query}"`,
+      400
+    );
+    const subs = parseLLMJsonArray(raw).slice(0, n);
+    transformedQueries = subs.length ? subs : [query];
+    multiQueries = transformedQueries;
+  }
+
+  // ── 2. Embed and retrieve ─────────────────────────────────────────────────
+  let rawMatches;
+  if (multiQueries) {
+    const allLists = await Promise.all(
+      multiQueries.map(q => embedText(q).then(vec => queryIndex(vec, index.top_k, ns)))
+    );
+    rawMatches = rrfMerge(allLists);
+  } else {
+    const vec = await embedText(retrievalQuery);
+    rawMatches = await queryIndex(vec, index.top_k, ns);
+  }
+
+  // ── 3. Build candidate list ───────────────────────────────────────────────
+  let candidates = rawMatches.slice(0, index.top_k).map((m, i) => ({
+    id: m.id,
+    rank: i + 1,
+    original_rank: null,
+    score: m.score,
+    original_score: null,
+    text: cleanChunkText(m.metadata?.text || ''),
+    metadata: m.metadata || {},
+  }));
+
+  // ── 4. Reranking ─────────────────────────────────────────────────────────
+  let rerankerUsed = null;
+
+  if (reranking.model === 'pinecone' && candidates.length > 0) {
+    try {
+      const rRes = await fetch('https://api.pinecone.io/rerank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-10' },
+        body: JSON.stringify({
+          model: 'bge-reranker-v2-m3',
+          query,
+          return_documents: false,
+          top_n: candidates.length,
+          documents: candidates.map(c => ({ id: String(c.rank - 1), text: c.text })),
+        }),
+      });
+      const rData = await rRes.json();
+      if (rRes.ok && rData.results) {
+        const orig = [...candidates];
+        candidates = rData.results.map((r, newRank) => {
+          const o = orig[r.index];
+          return { ...o, rank: newRank + 1, original_rank: o.rank, score: r.score, original_score: o.score };
+        });
+        rerankerUsed = 'pinecone';
+      } else {
+        console.warn('[rerank/pinecone]', rData);
+      }
+    } catch (e) { console.warn('[rerank/pinecone]', e.message); }
+
+  } else if (reranking.model === 'cohere' && COHERE_API_KEY && candidates.length > 0) {
+    try {
+      const rRes = await fetch('https://api.cohere.com/v2/rerank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${COHERE_API_KEY}` },
+        body: JSON.stringify({ model: 'rerank-v3.5', query, top_n: candidates.length, documents: candidates.map(c => c.text) }),
+      });
+      const rData = await rRes.json();
+      if (rRes.ok && rData.results) {
+        const orig = [...candidates];
+        candidates = rData.results.map((r, newRank) => {
+          const o = orig[r.index];
+          return { ...o, rank: newRank + 1, original_rank: o.rank, score: r.relevance_score, original_score: o.score };
+        });
+        rerankerUsed = 'cohere';
+      }
+    } catch (e) { console.warn('[rerank/cohere]', e.message); }
+  }
+
+  // ── 5. Deduplication ─────────────────────────────────────────────────────
+  if (context.deduplicate) {
+    const kept = [];
+    for (const c of candidates) {
+      if (!kept.some(k => bigramSimilarity(k.text, c.text) > 0.85)) kept.push(c);
+    }
+    candidates = kept;
+  }
+
+  // ── 6. Context assembly ───────────────────────────────────────────────────
+  let selected = candidates.slice(0, context.num_chunks);
+
+  if (context.ordering === 'reversed') {
+    selected = [...selected].reverse();
+  } else if (context.ordering === 'relevant_ends' && selected.length > 2) {
+    const [first, ...rest] = selected;
+    const last = rest.pop();
+    selected = [first, ...rest.reverse(), last];
+  }
+
+  if (context.compression !== 'none') {
+    selected = await Promise.all(selected.map(async c => {
+      const prompt = context.compression === 'summarize'
+        ? `Summarize this text in 2\u20133 sentences, focusing on what's relevant to: "${query}"\n\nText: ${c.text}\n\nSummary only:`
+        : `Extract the 2\u20133 most relevant sentences from this text for the question: "${query}"\n\nText: ${c.text}\n\nReturn only the extracted sentences.`;
+      return { ...c, text: await llmCall(prompt, 200) };
+    }));
+  }
+
+  const assembledContext = selected
+    .map((c, i) => `[${i + 1}] ${c.metadata.source || ''}\n${c.text}`)
+    .join('\n\n');
+
+  // ── 7. Generate answer ────────────────────────────────────────────────────
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL, max_tokens: 1000,
+      system: `You are a precise technical assistant answering questions using only the provided Pinecone documentation context.\n\nRules:\n- Answer using ONLY the provided context\n- Use inline citations [1][2][3] after each factual claim\n- Be concise and technical \u2014 3\u20135 sentences\n- Lead with the most important insight\n- If context is insufficient, say so clearly`,
+      messages: [{ role: 'user', content: `Context:\n${assembledContext}\n\nQuestion: ${query}\n\nAnswer with inline citations:` }],
+    }),
+  });
+  const claudeData = await claudeRes.json();
+  if (!claudeRes.ok) throw new Error(`Claude: ${claudeData.error?.message}`);
+
+  return {
+    trace: {
+      original_query:       query,
+      transformed_queries:  transformedQueries,
+      candidates_retrieved: rawMatches.length,
+      reranker_used:        rerankerUsed,
+    },
+    chunks:            candidates,
+    assembled_context: assembledContext,
+    answer:            claudeData.content?.[0]?.text || '',
+  };
+}
+
 // ─── Retrieval Explorer endpoint ─────────────────────────────────────────────
 
 app.post('/api/retrieval-explorer', async (req, res) => {
@@ -301,192 +490,196 @@ app.post('/api/retrieval-explorer', async (req, res) => {
   if (!OPENAI_API_KEY || !ANTHROPIC_API_KEY)
     return res.status(503).json({ error: 'RAG dependencies missing (OPENAI_API_KEY, ANTHROPIC_API_KEY)' });
 
-  const { index, query_transform, reranking, context } = config;
-  const ns = index.namespace_filter || null;
-
   try {
-    // ── 1. Query transformation ───────────────────────────────────────────────
-    let transformedQueries = [];
-    let multiQueries = null;
-    let retrievalQuery = query;
-
-    if (query_transform.type === 'hyde') {
-      const hypo = await llmCall(
-        `Write a 2–3 sentence technical answer to this question, as if from documentation:\n\n"${query}"\n\nAnswer only, no preamble.`,
-        300
-      );
-      transformedQueries = [hypo];
-      retrievalQuery = hypo;
-
-    } else if (query_transform.type === 'step_back') {
-      const abstract = await llmCall(
-        `Rephrase this question as a broader, more general version (one sentence only):\n\n"${query}"\n\nReturn only the rephrased question.`,
-        150
-      );
-      transformedQueries = [abstract];
-      retrievalQuery = abstract;
-
-    } else if (query_transform.type === 'multi_query') {
-      const n = query_transform.num_variants || 3;
-      const raw = await llmCall(
-        `Generate ${n} different phrasings of this question. Return a JSON array of strings only, no preamble:\n\n"${query}"`,
-        400
-      );
-      const variants = parseLLMJsonArray(raw).slice(0, n);
-      transformedQueries = variants.length ? variants : [query];
-      multiQueries = transformedQueries;
-
-    } else if (query_transform.type === 'decompose') {
-      const n = query_transform.num_variants || 3;
-      const raw = await llmCall(
-        `Break this question into ${n} simpler sub-questions. Return a JSON array of strings only, no preamble:\n\n"${query}"`,
-        400
-      );
-      const subs = parseLLMJsonArray(raw).slice(0, n);
-      transformedQueries = subs.length ? subs : [query];
-      multiQueries = transformedQueries;
-    }
-
-    // ── 2. Embed and retrieve ─────────────────────────────────────────────────
-    let rawMatches;
-    if (multiQueries) {
-      const allLists = await Promise.all(
-        multiQueries.map(q => embedText(q).then(vec => queryIndex(vec, index.top_k, ns)))
-      );
-      rawMatches = rrfMerge(allLists);
-    } else {
-      const vec = await embedText(retrievalQuery);
-      rawMatches = await queryIndex(vec, index.top_k, ns);
-    }
-
-    // ── 3. Build candidate list ───────────────────────────────────────────────
-    let candidates = rawMatches.slice(0, index.top_k).map((m, i) => ({
-      id: m.id,
-      rank: i + 1,
-      original_rank: null,
-      score: m.score,
-      original_score: null,
-      text: cleanChunkText(m.metadata?.text || ''),
-      metadata: m.metadata || {},
-    }));
-
-    // ── 4. Reranking ─────────────────────────────────────────────────────────
-    let rerankerUsed = null;
-
-    if (reranking.model === 'pinecone' && candidates.length > 0) {
-      try {
-        const rRes = await fetch('https://api.pinecone.io/rerank', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-10' },
-          body: JSON.stringify({
-            model: 'bge-reranker-v2-m3',
-            query,
-            return_documents: false,
-            top_n: candidates.length,
-            documents: candidates.map(c => ({ id: String(c.rank - 1), text: c.text })),
-          }),
-        });
-        const rData = await rRes.json();
-        if (rRes.ok && rData.results) {
-          const orig = [...candidates];
-          candidates = rData.results.map((r, newRank) => {
-            const o = orig[r.index];
-            return { ...o, rank: newRank + 1, original_rank: o.rank, score: r.score, original_score: o.score };
-          });
-          rerankerUsed = 'pinecone';
-        } else {
-          console.warn('[rerank/pinecone]', rData);
-        }
-      } catch (e) { console.warn('[rerank/pinecone]', e.message); }
-
-    } else if (reranking.model === 'cohere' && COHERE_API_KEY && candidates.length > 0) {
-      try {
-        const rRes = await fetch('https://api.cohere.com/v2/rerank', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${COHERE_API_KEY}` },
-          body: JSON.stringify({ model: 'rerank-v3.5', query, top_n: candidates.length, documents: candidates.map(c => c.text) }),
-        });
-        const rData = await rRes.json();
-        if (rRes.ok && rData.results) {
-          const orig = [...candidates];
-          candidates = rData.results.map((r, newRank) => {
-            const o = orig[r.index];
-            return { ...o, rank: newRank + 1, original_rank: o.rank, score: r.relevance_score, original_score: o.score };
-          });
-          rerankerUsed = 'cohere';
-        }
-      } catch (e) { console.warn('[rerank/cohere]', e.message); }
-    }
-
-    // ── 5. Deduplication ─────────────────────────────────────────────────────
-    if (context.deduplicate) {
-      const kept = [];
-      for (const c of candidates) {
-        if (!kept.some(k => bigramSimilarity(k.text, c.text) > 0.85)) kept.push(c);
-      }
-      candidates = kept;
-    }
-
-    // ── 6. Context assembly ───────────────────────────────────────────────────
-    let selected = candidates.slice(0, context.num_chunks);
-
-    if (context.ordering === 'reversed') {
-      selected = [...selected].reverse();
-    } else if (context.ordering === 'relevant_ends' && selected.length > 2) {
-      const [first, ...rest] = selected;
-      const last = rest.pop();
-      selected = [first, ...rest.reverse(), last];
-    }
-
-    if (context.compression !== 'none') {
-      selected = await Promise.all(selected.map(async c => {
-        const prompt = context.compression === 'summarize'
-          ? `Summarize this text in 2–3 sentences, focusing on what's relevant to: "${query}"\n\nText: ${c.text}\n\nSummary only:`
-          : `Extract the 2–3 most relevant sentences from this text for the question: "${query}"\n\nText: ${c.text}\n\nReturn only the extracted sentences.`;
-        return { ...c, text: await llmCall(prompt, 200) };
-      }));
-    }
-
-    const assembledContext = selected
-      .map((c, i) => `[${i + 1}] ${c.metadata.source || ''}\n${c.text}`)
-      .join('\n\n');
-
-    // ── 7. Generate answer ────────────────────────────────────────────────────
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL, max_tokens: 1000,
-        system: `You are a precise technical assistant answering questions using only the provided Pinecone documentation context.
-
-Rules:
-- Answer using ONLY the provided context
-- Use inline citations [1][2][3] after each factual claim
-- Be concise and technical — 3–5 sentences
-- Lead with the most important insight
-- If context is insufficient, say so clearly`,
-        messages: [{ role: 'user', content: `Context:\n${assembledContext}\n\nQuestion: ${query}\n\nAnswer with inline citations:` }],
-      }),
-    });
-    const claudeData = await claudeRes.json();
-    if (!claudeRes.ok) return res.status(claudeRes.status).json({ error: `Claude: ${claudeData.error?.message}` });
-
-    res.json({
-      trace: {
-        original_query:      query,
-        transformed_queries: transformedQueries,
-        candidates_retrieved: rawMatches.length,
-        reranker_used:       rerankerUsed,
-      },
-      chunks:            candidates,
-      assembled_context: assembledContext,
-      answer:            claudeData.content?.[0]?.text || '',
-    });
-
+    const result = await runPipeline(query, config);
+    res.json(result);
   } catch (e) {
     console.error('[retrieval-explorer]', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── Retrieval Eval ───────────────────────────────────────────────────────────
+
+// Ground-truth sources confirmed by querying the live index.
+// The index contains exactly these 10 docs ingested from docs.pinecone.io:
+//   assistant/overview, data/filter-with-metadata, data/query-data, data/upsert-data,
+//   get-started/key-concepts, indexes/create-an-index, indexes/understanding-indexes,
+//   inference/understanding-inference, search/hybrid-search, reference/api/introduction
+const EVAL_DATASET = [
+  { id: 1,
+    question: 'How does hybrid search work in Pinecone?',
+    reference: 'Hybrid search combines dense (semantic) and sparse (keyword) vectors in a single query. Pinecone recommends a single hybrid index using the dotproduct metric, where you upsert records containing both dense and sparse vectors. At query time you send both vector types together; results rank by a weighted blend controlled by an alpha parameter (1.0 = fully dense, 0.0 = fully sparse).',
+    expected_sources: ['https://docs.pinecone.io/guides/search/hybrid-search'] },
+
+  { id: 2,
+    question: 'What is the difference between serverless and pod-based indexes?',
+    reference: 'Serverless indexes auto-scale with no infrastructure management and are billed per query and storage unit — ideal for variable workloads. Pod-based indexes run on dedicated hardware pods with fixed capacity and predictable throughput — better for consistent high-volume traffic. Serverless is recommended for most new projects; pods suit applications with strict latency SLAs or very large corpora.',
+    expected_sources: ['https://docs.pinecone.io/guides/indexes/understanding-indexes'] },
+
+  { id: 3,
+    question: 'How do namespaces work in Pinecone?',
+    reference: 'Namespaces partition a single index into isolated segments. Vectors in different namespaces never interact — a query scoped to one namespace only returns results from that namespace. This enables multi-tenancy (one namespace per user or customer) without the overhead of maintaining separate indexes.',
+    expected_sources: ['https://docs.pinecone.io/guides/get-started/key-concepts',
+                       'https://docs.pinecone.io/guides/indexes/understanding-indexes'] },
+
+  { id: 4,
+    question: 'What is the Pinecone Inference API?',
+    reference: 'The Pinecone Inference API provides hosted embedding and reranking models directly within the Pinecone platform, removing the need for a separate embedding provider. You can generate dense and sparse embeddings and rerank results using models such as text-embedding-3-small and bge-reranker-v2-m3 via a single API key, simplifying the RAG pipeline.',
+    expected_sources: ['https://docs.pinecone.io/guides/inference/understanding-inference'] },
+
+  { id: 5,
+    question: 'How does sparse vector search differ from dense vector search?',
+    reference: 'Dense vector search uses high-dimensional floating-point embeddings (e.g., 1536-d) to capture semantic meaning, enabling matches even without exact keyword overlap. Sparse vector search uses high-dimensional mostly-zero vectors (BM25 or SPLADE) to match exact or near-exact terms, excelling at keyword precision. Dense suits semantic retrieval; sparse suits keyword recall. Hybrid search combines both.',
+    expected_sources: ['https://docs.pinecone.io/guides/search/hybrid-search',
+                       'https://docs.pinecone.io/guides/get-started/key-concepts'] },
+
+  { id: 6,
+    question: 'What are the benefits of using Pinecone for production AI applications?',
+    reference: 'Pinecone provides fully managed vector search with automatic scaling, high availability, and sub-millisecond ANN query latency at any scale. Key benefits include serverless pricing with no idle cost, metadata filtering, hybrid dense+sparse search, a hosted inference API, and native integrations with LLM frameworks like LangChain and LlamaIndex. It removes the operational burden of running and tuning a vector database.',
+    expected_sources: ['https://docs.pinecone.io/guides/get-started/key-concepts'] },
+
+  { id: 7,
+    question: 'How do I upsert vectors with metadata in Pinecone?',
+    reference: 'Call index.upsert() with a list of records, each containing an id (string), values (embedding array), and an optional metadata dict. For example: index.upsert(vectors=[{"id":"v1","values":[0.1,...],"metadata":{"source":"doc1","text":"..."}}]). Metadata fields can later be used in filtered queries using MongoDB-style operators.',
+    expected_sources: ['https://docs.pinecone.io/guides/data/upsert-data'] },
+
+  { id: 8,
+    question: 'What distance metrics does Pinecone support for similarity search?',
+    reference: 'Pinecone supports three distance metrics set at index creation: cosine similarity (default, best for normalized embeddings), euclidean distance (best when vector magnitude carries meaning), and dot product (required for hybrid search and for models that produce unnormalized embeddings). The metric cannot be changed after index creation.',
+    expected_sources: ['https://docs.pinecone.io/guides/indexes/create-an-index',
+                       'https://docs.pinecone.io/guides/indexes/understanding-indexes'] },
+
+  { id: 9,
+    question: 'How does Pinecone handle metadata filtering at query time?',
+    reference: 'Pinecone applies server-side metadata filtering using a filter object passed in the query. Filters use MongoDB-style operators ($eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $and, $or). The filter is evaluated before ANN scoring so only matching vectors are candidates, which can reduce recall when filters are very selective. Indexed metadata fields perform better than unindexed ones.',
+    expected_sources: ['https://docs.pinecone.io/guides/data/filter-with-metadata'] },
+
+  { id: 10,
+    question: 'What is the Pinecone Assistant and how does it differ from the index API?',
+    reference: 'Pinecone Assistant is a fully managed RAG service that handles document ingestion, chunking, embedding, storage, retrieval, and answer generation in one API call. Unlike the index API where you control embedding and querying yourself, the Assistant takes raw documents and returns cited answers automatically. It is best when you want managed end-to-end RAG without building the pipeline.',
+    expected_sources: ['https://docs.pinecone.io/guides/assistant/overview'] },
+];
+
+const OPTIMIZE_PRESETS = [
+  { id: 'C1', label: 'Baseline',      desc: 'No transform \u00b7 K=5 \u00b7 No rerank \u00b7 3 chunks',
+    config: makeBaseConfig({ transform: 'none',        topK: 5,  reranker: 'none',     numChunks: 3 }) },
+  { id: 'C2', label: 'Pool + Rerank', desc: 'No transform \u00b7 K=10 \u00b7 Pinecone rerank \u00b7 3 chunks',
+    config: makeBaseConfig({ transform: 'none',        topK: 10, reranker: 'pinecone', numChunks: 3 }) },
+  { id: 'C3', label: 'HyDE + Rerank', desc: 'HyDE \u00b7 K=10 \u00b7 Pinecone rerank \u00b7 3 chunks',
+    config: makeBaseConfig({ transform: 'hyde',        topK: 10, reranker: 'pinecone', numChunks: 3 }) },
+  { id: 'C4', label: 'Multi-Query',   desc: 'Multi-query/3 \u00b7 K=10 \u00b7 Pinecone rerank \u00b7 5 chunks',
+    config: makeBaseConfig({ transform: 'multi_query', topK: 10, reranker: 'pinecone', numChunks: 5, numVariants: 3 }) },
+  { id: 'C5', label: 'Step-Back',     desc: 'Step-back \u00b7 K=5 \u00b7 No rerank \u00b7 3 chunks',
+    config: makeBaseConfig({ transform: 'step_back',   topK: 5,  reranker: 'none',     numChunks: 3 }) },
+];
+
+// Deterministic retrieval metrics — no LLM call needed, just source URL matching
+function computeRetrieval(chunks, expectedSources) {
+  // Find rank of first chunk whose source matches any expected source
+  let firstHitRank = null;
+  for (let i = 0; i < chunks.length; i++) {
+    const src = chunks[i].metadata?.source || '';
+    if (expectedSources.some(es => src === es || src.includes(es.split('/').pop()))) {
+      firstHitRank = i + 1;
+      break;
+    }
+  }
+
+  const hitAt1  = firstHitRank === 1;
+  const hitAt3  = firstHitRank !== null && firstHitRank <= 3;
+  const hitAt5  = firstHitRank !== null && firstHitRank <= 5;
+  const hitAt10 = firstHitRank !== null && firstHitRank <= 10;
+  const mrr     = firstHitRank ? 1 / firstHitRank : 0;
+
+  return { hit_at_1: hitAt1, hit_at_3: hitAt3, hit_at_5: hitAt5, hit_at_10: hitAt10,
+           mrr, first_hit_rank: firstHitRank };
+}
+
+async function judgeAnswer(query, context, answer, referenceAnswer) {
+  const prompt = `You are evaluating a RAG system response. Return ONLY valid JSON, nothing else.
+
+Question: ${query}
+
+Reference answer (ground truth):
+${referenceAnswer}
+
+Retrieved context:
+${context.slice(0, 2000)}
+
+Generated answer:
+${answer}
+
+Score each dimension 0-10 and return JSON:
+
+context_relevance (0-10): Are the retrieved chunks relevant to the question? Score 10 if every chunk directly addresses the question; score low if chunks are off-topic or only tangentially related.
+
+faithfulness (0-10): Does the generated answer stay grounded in the retrieved context without hallucinating? Score 10 if every claim is supported by the context; deduct for each unsupported claim.
+
+answer_correctness (0-10): Compared to the reference answer, how correct and complete is the generated answer? Score 10 if it captures all key facts from the reference; deduct for missing facts or inaccuracies.
+
+answer_relevance (0-10): Does the generated answer actually address the question that was asked? Score 10 if fully on-topic; deduct if the answer is vague, off-topic, or refuses to answer.
+
+Return: {"context_relevance": N, "faithfulness": N, "answer_correctness": N, "answer_relevance": N, "reasoning": "one sentence"}`;
+
+  const text = await llmCall(prompt, 400);
+  const match = text.match(/\{[\s\S]*\}/);
+  const empty = { context_relevance: 0, faithfulness: 0, answer_correctness: 0, answer_relevance: 0, reasoning: 'parse error' };
+  if (!match) return empty;
+  try { return JSON.parse(match[0]); }
+  catch { return empty; }
+}
+
+app.post('/api/eval', async (req, res) => {
+  const { mode, config } = req.body;
+  if (!PINECONE_HOST) return res.status(503).json({ error: 'Pinecone index not available' });
+  if (!OPENAI_API_KEY || !ANTHROPIC_API_KEY)
+    return res.status(503).json({ error: 'RAG dependencies missing' });
+
+  res.setHeader('Content-Type', 'application/x-ndjson');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.flushHeaders();
+
+  const send = (obj) => { try { res.write(JSON.stringify(obj) + '\n'); } catch(e) {} };
+
+  try {
+    if (mode === 'single') {
+      for (const item of EVAL_DATASET) {
+        try {
+          const result = await runPipeline(item.question, config);
+          const [scores, retrieval] = await Promise.all([
+            judgeAnswer(item.question, result.assembled_context, result.answer, item.reference),
+            Promise.resolve(computeRetrieval(result.chunks, item.expected_sources)),
+          ]);
+          send({ type: 'result', questionId: item.id, question: item.question, answer: result.answer, scores, retrieval });
+        } catch(e) {
+          send({ type: 'error', questionId: item.id, error: e.message });
+        }
+      }
+    } else if (mode === 'optimize') {
+      const BATCH = 2;
+      for (let i = 0; i < OPTIMIZE_PRESETS.length; i += BATCH) {
+        await Promise.all(OPTIMIZE_PRESETS.slice(i, i + BATCH).map(async (preset) => {
+          for (const item of EVAL_DATASET) {
+            try {
+              const result = await runPipeline(item.question, preset.config);
+              const [scores, retrieval] = await Promise.all([
+                judgeAnswer(item.question, result.assembled_context, result.answer, item.reference),
+                Promise.resolve(computeRetrieval(result.chunks, item.expected_sources)),
+              ]);
+              send({ type: 'result', configId: preset.id, questionId: item.id, scores, retrieval });
+            } catch(e) {
+              send({ type: 'error', configId: preset.id, questionId: item.id, error: e.message });
+            }
+          }
+        }));
+      }
+    }
+    send({ type: 'done' });
+  } catch(e) {
+    send({ type: 'fatal', error: e.message });
+  }
+  res.end();
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
