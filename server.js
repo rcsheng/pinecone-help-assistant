@@ -576,24 +576,66 @@ const OPTIMIZE_PRESETS = [
 
 // Deterministic retrieval metrics — no LLM call needed, just source URL matching
 function computeRetrieval(chunks, expectedSources) {
-  // Find rank of first chunk whose source matches any expected source
-  let firstHitRank = null;
-  for (let i = 0; i < chunks.length; i++) {
-    const src = chunks[i].metadata?.source || '';
-    if (expectedSources.some(es => src === es || src.includes(es.split('/').pop()))) {
-      firstHitRank = i + 1;
-      break;
-    }
+  function isRelevant(chunk) {
+    const src = chunk.metadata?.source || '';
+    return expectedSources.some(es => src === es || src.includes(es.split('/').pop()));
   }
 
+  // Binary relevance array
+  const relArr = chunks.map(c => isRelevant(c) ? 1 : 0);
+
+  // First hit rank (1-indexed, null if none)
+  const firstHitIdx = relArr.indexOf(1);
+  const firstHitRank = firstHitIdx === -1 ? null : firstHitIdx + 1;
+
+  // Hit@K
   const hitAt1  = firstHitRank === 1;
   const hitAt3  = firstHitRank !== null && firstHitRank <= 3;
   const hitAt5  = firstHitRank !== null && firstHitRank <= 5;
   const hitAt10 = firstHitRank !== null && firstHitRank <= 10;
-  const mrr     = firstHitRank ? 1 / firstHitRank : 0;
 
-  return { hit_at_1: hitAt1, hit_at_3: hitAt3, hit_at_5: hitAt5, hit_at_10: hitAt10,
-           mrr, first_hit_rank: firstHitRank };
+  // MRR
+  const mrr = firstHitRank ? 1 / firstHitRank : 0;
+
+  // Precision@K = (# relevant in top K) / K
+  function precisionAtK(k) {
+    const topK = relArr.slice(0, k);
+    return topK.length ? topK.reduce((a, b) => a + b, 0) / topK.length : 0;
+  }
+
+  // Recall@K = (# unique expected sources found in top K) / total expected sources
+  // Different from Hit@K when a question has multiple expected sources
+  function recallAtK(k) {
+    if (!expectedSources.length) return 0;
+    const found = new Set();
+    chunks.slice(0, k).forEach(c => {
+      const src = c.metadata?.source || '';
+      expectedSources.forEach(es => {
+        if (src === es || src.includes(es.split('/').pop())) found.add(es);
+      });
+    });
+    return found.size / expectedSources.length;
+  }
+
+  // NDCG@K with binary relevance
+  // DCG@K = sum(rel_i / log2(i+2)) for i=0..K-1
+  // IDCG@K = DCG of ideal ordering (all relevant docs at top positions)
+  function ndcgAtK(k) {
+    const topK = relArr.slice(0, k);
+    const dcg = topK.reduce((acc, rel, i) => acc + rel / Math.log2(i + 2), 0);
+    const numRelevant = Math.min(expectedSources.length, k);
+    let idcg = 0;
+    for (let i = 0; i < numRelevant; i++) idcg += 1 / Math.log2(i + 2);
+    return idcg > 0 ? dcg / idcg : 0;
+  }
+
+  return {
+    hit_at_1: hitAt1, hit_at_3: hitAt3, hit_at_5: hitAt5, hit_at_10: hitAt10,
+    mrr, first_hit_rank: firstHitRank,
+    precision_at_3: precisionAtK(3), precision_at_5: precisionAtK(5),
+    recall_at_3: recallAtK(3),       recall_at_5: recallAtK(5),
+    ndcg_at_3: ndcgAtK(3),           ndcg_at_5: ndcgAtK(5),
+  };
 }
 
 async function judgeAnswer(query, context, answer, referenceAnswer) {

@@ -1150,7 +1150,7 @@
       <div class="ev-approach-note">
         Two evaluation layers run together on each question:<br>
         <strong style="color:var(--pine)">LLM-as-judge</strong> (Claude Sonnet) scores 4 quality dimensions (0&ndash;10). Reference answers provided for Answer Correctness.<br>
-        <strong style="color:var(--pine)">Deterministic retrieval metrics</strong> (Hit&nbsp;Rate@1/3/5, MRR) computed by matching retrieved chunk sources against ground-truth document URLs confirmed from the live index.
+        <strong style="color:var(--pine)">Deterministic retrieval metrics</strong> (Hit&nbsp;Rate@1/3/5, MRR, Precision@3/5, Recall@3/5, NDCG@3/5) computed by matching retrieved chunk sources against ground-truth document URLs confirmed from the live index.
       </div>
       <div class="ev-metric-grid">
         <div class="ev-metric-def">
@@ -1250,12 +1250,63 @@
               <div class="ev-ex mid">MRR 0.33&ndash;0.5 &mdash; Correct document retrieved at rank 3 or 2</div>
               <div class="ev-ex high">MRR 1.0 &mdash; Correct document is the top result</div>
             </div>
-            <div class="ev-metric-note">Not normalized (no NDCG): this index has too few total documents for NDCG to be meaningful.</div>
+            <div class="ev-metric-note">Focuses on the rank of the <em>first</em> relevant hit — does not reward finding multiple relevant documents.</div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip hr">Precision@K</span>
+            <span class="ev-metric-name">Precision @ 3 / 5</span>
+            <span class="ev-metric-weight">deterministic</span>
+            <span class="ev-metric-tag ref-based">ground-truth docs &#x2713;</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Of the top K retrieved chunks, what fraction came from a relevant source? Precision@K = (# relevant in top K) / K. Penalizes retrieving noise alongside relevant chunks.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">P@5 = 0.0 &mdash; All 5 retrieved chunks are from wrong documents</div>
+              <div class="ev-ex mid">P@5 = 0.4 &mdash; 2 of 5 chunks are from expected source(s)</div>
+              <div class="ev-ex high">P@5 = 1.0 &mdash; Every retrieved chunk is relevant</div>
+            </div>
+            <div class="ev-metric-note">High precision means the context window is dense with relevant content. Complements recall: a system can have perfect precision@1 but zero recall if only one expected source exists among many.</div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip hr">Recall@K</span>
+            <span class="ev-metric-name">Recall @ 3 / 5</span>
+            <span class="ev-metric-weight">deterministic</span>
+            <span class="ev-metric-tag ref-based">ground-truth docs &#x2713;</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Of all expected source documents for this question, what fraction appear in the top K retrieved chunks? Recall@K = (# distinct expected sources found in top K) / (total expected sources). Diverges from Hit@K when a question has multiple ground-truth documents.</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">R@5 = 0.0 &mdash; None of the expected documents appear in top 5</div>
+              <div class="ev-ex mid">R@5 = 0.5 &mdash; 1 of 2 expected documents found (multi-source question)</div>
+              <div class="ev-ex high">R@5 = 1.0 &mdash; All expected documents represented in top 5</div>
+            </div>
+            <div class="ev-metric-note">For single-source questions, Recall@K == Hit@K. Recall@K is more discriminating when a question requires evidence from 2&ndash;3 different documents.</div>
+          </div>
+        </div>
+        <div class="ev-metric-def">
+          <div class="ev-metric-def-hdr">
+            <span class="ev-metric-chip hr">NDCG@K</span>
+            <span class="ev-metric-name">Normalized Discounted Cumulative Gain @ 3 / 5</span>
+            <span class="ev-metric-weight">deterministic</span>
+            <span class="ev-metric-tag ref-based">ground-truth docs &#x2713;</span>
+          </div>
+          <div class="ev-metric-body">
+            <p>Position-weighted relevance score. Rewards finding relevant chunks early: DCG@K = &sum;(rel<sub>i</sub> / log<sub>2</sub>(i+2)). Normalized to [0,1] by dividing by the ideal ordering (IDCG). Combines rank sensitivity (like MRR) with coverage (like Recall).</p>
+            <div class="ev-metric-examples">
+              <div class="ev-ex low">NDCG@5 = 0.0 &mdash; No relevant document in top 5</div>
+              <div class="ev-ex mid">NDCG@5 = 0.50 &mdash; Relevant doc found at rank 3 (1/log&#x2082;4 = 0.5, normalized)</div>
+              <div class="ev-ex high">NDCG@5 = 1.0 &mdash; All relevant docs at top positions in ideal order</div>
+            </div>
+            <div class="ev-metric-note">NDCG is the standard IR metric for ranked retrieval. Unlike MRR it rewards partial coverage: finding 2 of 3 expected docs scores higher than finding 1.</div>
           </div>
         </div>
       </div>
       <div class="ev-composite-formula">
-        LLM composite = CR &times; 0.20 + F &times; 0.35 + AC &times; 0.30 + AR &times; 0.15 &nbsp;&nbsp;|&nbsp;&nbsp; Retrieval: Hit@1 / Hit@3 / Hit@5 / MRR (separate)
+        LLM composite = CR &times; 0.20 + F &times; 0.35 + AC &times; 0.30 + AR &times; 0.15 &nbsp;&nbsp;|&nbsp;&nbsp; Retrieval (deterministic): Hit@1/3/5 &middot; MRR &middot; Precision@3/5 &middot; Recall@3/5 &middot; NDCG@3/5
       </div>
     </div>
 
@@ -1301,8 +1352,8 @@
           <a class="paper-link" href="https://arxiv.org/abs/2307.16877" target="_blank">arXiv →</a>
         </div>
         <div class="paper-item">
-          <span class="paper-tag">MRR / Hit@K</span>
-          <span class="paper-title">Introduction to Information Retrieval (MRR, Precision@K)</span>
+          <span class="paper-tag">IR Metrics</span>
+          <span class="paper-title">Introduction to Information Retrieval (MRR, Hit@K, Precision, Recall, NDCG)</span>
           <span class="paper-authors">Manning, Raghavan &amp; Schütze, 2008</span>
           <a class="paper-link" href="https://nlp.stanford.edu/IR-book/" target="_blank">Book →</a>
         </div>
@@ -2134,10 +2185,16 @@ function scoreChips(s, r) {
   var cx = composite(s);
   var retHtml = '';
   if (r) {
-    var rankTxt = r.first_hit_rank ? '#' + r.first_hit_rank : 'miss';
-    var hitCls  = r.hit_at_5 ? 'hr' : 'miss';
-    retHtml = '<span class="ev-score-chip ' + hitCls + '" title="Hit@5: ' + (r.hit_at_5 ? 'YES' : 'NO') + ' | First hit rank: ' + (r.first_hit_rank || 'none') + ' | MRR: ' + r.mrr.toFixed(2) + '">' +
-      (r.hit_at_5 ? '\u2713' : '\u2717') + ' ' + rankTxt + '</span>';
+    var rankTxt  = r.first_hit_rank ? '#' + r.first_hit_rank : 'miss';
+    var hitCls   = r.hit_at_5 ? 'hr' : 'miss';
+    var ndcg5    = (+r.ndcg_at_5 || 0);
+    var recall5  = (+r.recall_at_5 || 0);
+    var ndcgCls  = ndcg5 >= 0.7 ? 'hr' : ndcg5 > 0 ? 'hr' : 'miss';
+    retHtml =
+      '<span class="ev-score-chip ' + hitCls + '" title="Hit@5: ' + (r.hit_at_5 ? 'YES' : 'NO') + ' | First hit rank: ' + (r.first_hit_rank || 'none') + ' | MRR: ' + r.mrr.toFixed(2) + '">' +
+        (r.hit_at_5 ? '\u2713' : '\u2717') + ' ' + rankTxt +
+      '</span>' +
+      '<span class="ev-score-chip ' + ndcgCls + '" title="NDCG@5: position-weighted relevance | Recall@5: ' + (recall5 * 100).toFixed(0) + '% of expected docs found | Precision@5: ' + ((+r.precision_at_5 || 0) * 100).toFixed(0) + '%">NDCG@5 ' + ndcg5.toFixed(2) + '</span>';
   }
   return '<div class="ev-score-chips">' + retHtml +
     '<span class="ev-score-chip cr" title="Context Relevance (ref-free)">CR ' + (+s.context_relevance || 0).toFixed(1) + '</span>' +
@@ -2210,12 +2267,21 @@ function finalizeSingle(results) {
   var avgCX = results.reduce(function(a,r){ return a+composite(r.scores); }, 0) / n;
 
   var withRet = results.filter(function(r){ return r.retrieval; });
-  var hit1  = withRet.length ? withRet.filter(function(r){ return r.retrieval.hit_at_1; }).length / withRet.length : null;
-  var hit3  = withRet.length ? withRet.filter(function(r){ return r.retrieval.hit_at_3; }).length / withRet.length : null;
-  var hit5  = withRet.length ? withRet.filter(function(r){ return r.retrieval.hit_at_5; }).length / withRet.length : null;
-  var mrr   = withRet.length ? withRet.reduce(function(a,r){ return a+r.retrieval.mrr; }, 0) / withRet.length : null;
+  function retAvg(fn) { return withRet.length ? withRet.reduce(function(a,r){ return a+fn(r.retrieval); }, 0) / withRet.length : null; }
+  var hit1   = retAvg(function(x){ return x.hit_at_1 ? 1 : 0; });
+  var hit3   = retAvg(function(x){ return x.hit_at_3 ? 1 : 0; });
+  var hit5   = retAvg(function(x){ return x.hit_at_5 ? 1 : 0; });
+  var mrr    = retAvg(function(x){ return x.mrr; });
+  var p3     = retAvg(function(x){ return +x.precision_at_3 || 0; });
+  var p5     = retAvg(function(x){ return +x.precision_at_5 || 0; });
+  var r3     = retAvg(function(x){ return +x.recall_at_3    || 0; });
+  var r5     = retAvg(function(x){ return +x.recall_at_5    || 0; });
+  var ndcg3  = retAvg(function(x){ return +x.ndcg_at_3      || 0; });
+  var ndcg5  = retAvg(function(x){ return +x.ndcg_at_5      || 0; });
 
-  function pct(v) { return v !== null ? (v * 100).toFixed(0) + '%' : '\u2014'; }
+  function pct(v)  { return v !== null ? (v * 100).toFixed(0) + '%' : '\u2014'; }
+  function dec3(v) { return v !== null ? v.toFixed(3) : '\u2014'; }
+  function dec2(v) { return v !== null ? v.toFixed(2) : '\u2014'; }
 
   var summaryHtml =
     '<div class="ev-recommendation" style="margin-top:16px">' +
@@ -2229,10 +2295,16 @@ function finalizeSingle(results) {
         '<tr><td class="ev-sum-lbl"><strong>Composite (CR\u00d70.20 + F\u00d70.35 + AC\u00d70.30 + AR\u00d70.15)</strong></td><td class="ev-sum-val"><strong style="color:var(--pine);font-size:13px">' + avgCX.toFixed(1) + ' / 10</strong></td></tr>' +
         (withRet.length ? (
         '<tr><td class="ev-sum-lbl" colspan="2" style="color:#38bdf8;padding-top:10px">Retrieval Metrics (deterministic, ground-truth docs)</td></tr>' +
-        '<tr><td class="ev-sum-lbl">Hit Rate@1 &mdash; correct doc is top result</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit1) + '</strong></td></tr>' +
-        '<tr><td class="ev-sum-lbl">Hit Rate@3</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit3) + '</strong></td></tr>' +
-        '<tr><td class="ev-sum-lbl">Hit Rate@5</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit5) + '</strong></td></tr>' +
-        '<tr><td class="ev-sum-lbl">MRR (Mean Reciprocal Rank)</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + (mrr !== null ? mrr.toFixed(3) : '\u2014') + '</strong></td></tr>'
+        '<tr><td class="ev-sum-lbl">Hit@1 &mdash; correct doc is top result</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit1) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Hit@3</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit3) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Hit@5</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + pct(hit5) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">MRR (Mean Reciprocal Rank)</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec3(mrr) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Precision@3</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec2(p3) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Precision@5</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec2(p5) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Recall@3</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec2(r3) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">Recall@5</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec2(r5) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">NDCG@3</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec2(ndcg3) + '</strong></td></tr>' +
+        '<tr><td class="ev-sum-lbl">NDCG@5</td><td class="ev-sum-val"><strong style="color:#38bdf8">' + dec2(ndcg5) + '</strong></td></tr>'
         ) : '') +
       '</table>' +
     '</div>';
@@ -2284,14 +2356,17 @@ function renderScoreboard(scoreMap) {
 
   var tableHtml = '<table class="ev-scoreboard-table"><thead><tr>' +
     '<th>Config</th><th>Description</th><th>Composite</th><th>CR</th><th>F</th><th>AC</th><th>AR</th>' +
-    '<th style="color:#38bdf8">Hit@5</th><th style="color:#38bdf8">MRR</th>' +
+    '<th style="color:#38bdf8">Hit@5</th><th style="color:#38bdf8">MRR</th><th style="color:#38bdf8">Recall@5</th><th style="color:#38bdf8">NDCG@5</th>' +
     '</tr></thead><tbody>';
   rows.forEach(function(r) {
     var raw = scoreMap[r.id + '_raw'] || [];
     var ret = retMap[r.id] || [];
     function avg(fn) { return raw.length ? (raw.reduce(function(a,b){ return a+fn(b); },0)/raw.length).toFixed(1) : '\u2014'; }
-    var avgHit5 = ret.length ? (ret.filter(function(x){ return x.hit_at_5; }).length / ret.length * 100).toFixed(0) + '%' : '\u2014';
-    var avgMRR  = ret.length ? (ret.reduce(function(a,x){ return a+x.mrr; },0)/ret.length).toFixed(3) : '\u2014';
+    function retAvgFn(fn) { return ret.length ? (ret.reduce(function(a,x){ return a+fn(x); },0)/ret.length) : null; }
+    var avgHit5   = ret.length ? (ret.filter(function(x){ return x.hit_at_5; }).length / ret.length * 100).toFixed(0) + '%' : '\u2014';
+    var avgMRR    = retAvgFn(function(x){ return x.mrr; });
+    var avgR5     = retAvgFn(function(x){ return +x.recall_at_5 || 0; });
+    var avgNDCG5  = retAvgFn(function(x){ return +x.ndcg_at_5  || 0; });
     var isWinner = r.id === winner.id;
     tableHtml += '<tr' + (isWinner ? ' class="winner"' : '') + '>' +
       '<td>' + r.id + (isWinner ? '<span class="ev-winner-badge">BEST</span>' : '') + '</td>' +
@@ -2302,7 +2377,9 @@ function renderScoreboard(scoreMap) {
       '<td>' + avg(function(b){ return b.ac; }) + '</td>' +
       '<td>' + avg(function(b){ return b.ar; }) + '</td>' +
       '<td style="color:#38bdf8">' + avgHit5 + '</td>' +
-      '<td style="color:#38bdf8">' + avgMRR + '</td>' +
+      '<td style="color:#38bdf8">' + (avgMRR !== null ? avgMRR.toFixed(3) : '\u2014') + '</td>' +
+      '<td style="color:#38bdf8">' + (avgR5   !== null ? avgR5.toFixed(2)  : '\u2014') + '</td>' +
+      '<td style="color:#38bdf8">' + (avgNDCG5 !== null ? avgNDCG5.toFixed(2) : '\u2014') + '</td>' +
     '</tr>';
   });
   tableHtml += '</tbody></table>';
@@ -2315,7 +2392,7 @@ function renderScoreboard(scoreMap) {
     '</div>' +
     '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:8px;line-height:1.6">' +
       'AC is reference-based (vs written reference answers). CR, F, AR are reference-free LLM-as-judge.<br>' +
-      'Hit@5 and MRR are deterministic \u2014 computed from ground-truth source URLs confirmed from the live index.' +
+      'Hit@5, MRR, Recall@5, NDCG@5 are deterministic \u2014 computed from ground-truth source URLs.' +
     '</div>';
 
   document.getElementById('ev-scoreboard-area').innerHTML =
