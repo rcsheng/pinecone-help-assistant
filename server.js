@@ -724,6 +724,167 @@ app.post('/api/eval', async (req, res) => {
   res.end();
 });
 
+// ─── Agent Memory ─────────────────────────────────────────────────────────────
+
+const MEMORY_NS = {
+  episodic:   'memory-episodic',
+  semantic:   'memory-semantic',
+  profile:    'memory-profile',
+  procedural: 'memory-procedural',
+};
+
+// In-memory browser cache — resets on server restart, Pinecone is source of truth
+const memoryStore = { episodic: [], semantic: [], profile: [], procedural: [] };
+
+async function classifyMemory(text) {
+  const raw = await llmCall(
+    `Classify this memory for an AI agent's memory system. Return ONLY valid JSON.
+
+Memory: "${text}"
+
+type: "episodic" (event/observation that happened), "semantic" (fact/concept/knowledge), "profile" (user preference/identity/trait), or "procedural" (how-to/process/workflow)
+importance: integer 0-10 (10=critical, 0=trivial)
+reasoning: one short sentence
+
+Return: {"type":"...","importance":N,"reasoning":"..."}`, 150);
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return { type: 'episodic', importance: 5, reasoning: 'classification unavailable' };
+  try { return JSON.parse(match[0]); }
+  catch(e) { return { type: 'episodic', importance: 5, reasoning: 'parse error' }; }
+}
+
+app.post('/api/memory/add', async (req, res) => {
+  if (!PINECONE_HOST) return res.status(503).json({ error: 'Pinecone not available' });
+  const { text, manualType } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'text is required' });
+  try {
+    const vector = await embedText(text);
+    const classification = manualType
+      ? { type: manualType, importance: 5, reasoning: 'manually assigned' }
+      : await classifyMemory(text);
+    const ns = MEMORY_NS[classification.type] || MEMORY_NS.episodic;
+
+    // Dedup check
+    const dRes = await fetch(`${PINECONE_HOST}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-07' },
+      body: JSON.stringify({ vector, topK: 3, includeMetadata: true, namespace: ns }),
+    });
+    const dData = await dRes.json();
+    const top = dData.matches?.[0];
+    if (top && top.score > 0.92) {
+      return res.json({ duplicate: true, existing: { id: top.id, text: top.metadata?.text, score: top.score }, classification });
+    }
+
+    const id = `mem_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const metadata = { text, type: classification.type, importance: classification.importance, timestamp: Date.now(), consolidated: false };
+    await fetch(`${PINECONE_HOST}/vectors/upsert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-07' },
+      body: JSON.stringify({ vectors: [{ id, values: vector, metadata }], namespace: ns }),
+    });
+    const entry = { id, ...metadata, namespace: classification.type };
+    memoryStore[classification.type].unshift(entry);
+    res.json({ success: true, id, classification, namespace: ns });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/memory/list', (_req, res) => res.json(memoryStore));
+
+app.delete('/api/memory/:id', async (req, res) => {
+  if (!PINECONE_HOST) return res.status(503).json({ error: 'Pinecone not available' });
+  const { id } = req.params;
+  const namespace = req.query.namespace || 'episodic';
+  const ns = MEMORY_NS[namespace] || MEMORY_NS.episodic;
+  try {
+    await fetch(`${PINECONE_HOST}/vectors/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-07' },
+      body: JSON.stringify({ ids: [id], namespace: ns }),
+    });
+    memoryStore[namespace] = (memoryStore[namespace] || []).filter(m => m.id !== id);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/memory/query', async (req, res) => {
+  if (!PINECONE_HOST) return res.status(503).json({ error: 'Pinecone not available' });
+  const { query, namespace = 'all', topK = 5, rerank = false } = req.body;
+  if (!query?.trim()) return res.status(400).json({ error: 'query is required' });
+  try {
+    const vector = await embedText(query);
+    const namespaces = namespace === 'all' ? Object.values(MEMORY_NS) : [MEMORY_NS[namespace] || namespace];
+    const allMatches = [];
+    for (const ns of namespaces) {
+      const r = await fetch(`${PINECONE_HOST}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-07' },
+        body: JSON.stringify({ vector, topK, includeMetadata: true, namespace: ns }),
+      });
+      const d = await r.json();
+      if (d.matches) allMatches.push(...d.matches);
+    }
+    allMatches.sort((a, b) => b.score - a.score);
+    let top = allMatches.slice(0, topK).map((m, i) => ({ ...m, rank: i + 1 }));
+
+    if (rerank && top.length > 1) {
+      try {
+        const rRes = await fetch('https://api.pinecone.io/rerank', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-10' },
+          body: JSON.stringify({ model: 'bge-reranker-v2-m3', query, return_documents: false, top_n: top.length, documents: top.map((m, i) => ({ id: String(i), text: m.metadata?.text || '' })) }),
+        });
+        const rData = await rRes.json();
+        if (rRes.ok && rData.results) {
+          const orig = [...top];
+          top = rData.results.map((r, newRank) => ({ ...orig[r.index], rank: newRank + 1, original_rank: orig[r.index].rank, rerank_score: r.score }));
+        }
+      } catch(e) { console.warn('[memory rerank]', e.message); }
+    }
+    res.json({ results: top, reranked: rerank });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/memory/consolidate', async (req, res) => {
+  const unconsolidated = (memoryStore.episodic || []).filter(m => !m.consolidated);
+  if (!unconsolidated.length) return res.json({ message: 'No unconsolidated episodic memories to process.', consolidated: 0, new_semantic_memories: [] });
+  try {
+    const texts = unconsolidated.map((m, i) => `${i + 1}. ${m.text}`).join('\n');
+    const raw = await llmCall(
+      `You are consolidating episodic agent memories into durable semantic facts. Return ONLY a JSON array.
+
+Episodic memories:
+${texts}
+
+Extract 2-5 concise, durable semantic facts. Each fact should be a single sentence capturing what is permanently true or important.
+
+Return: ["fact 1", "fact 2", ...]`, 400);
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Could not parse consolidation output from LLM');
+    const facts = JSON.parse(match[0]);
+
+    const newSemantics = [];
+    for (const fact of facts) {
+      const vector = await embedText(fact);
+      const id = `mem_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const metadata = { text: fact, type: 'semantic', importance: 7, timestamp: Date.now(), consolidated: false, source: 'consolidation' };
+      await fetch(`${PINECONE_HOST}/vectors/upsert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Api-Key': PINECONE_API_KEY, 'X-Pinecone-API-Version': '2024-07' },
+        body: JSON.stringify({ vectors: [{ id, values: vector, metadata }], namespace: MEMORY_NS.semantic }),
+      });
+      const entry = { id, ...metadata, namespace: 'semantic' };
+      memoryStore.semantic.unshift(entry);
+      newSemantics.push(entry);
+    }
+
+    const consolidatedIds = new Set(unconsolidated.map(m => m.id));
+    memoryStore.episodic = memoryStore.episodic.map(m => consolidatedIds.has(m.id) ? { ...m, consolidated: true } : m);
+
+    res.json({ consolidated: unconsolidated.length, source_episodics: unconsolidated.map(m => m.text), new_semantic_memories: newSemantics });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Start ───────────────────────────────────────────────────────────────────
 
 resolveHosts().then(() => {
